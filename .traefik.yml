@@ -1,12 +1,10 @@
-displayName: Demo Plugin
+displayName: Traefik Authentik Forward Plugin
 type: middleware
 iconPath: .assets/icon.png
 
-import: github.com/traefik/plugindemo
+import: github.com/xabinapal/traefik-authentik-forward-plugin
 
-summary: '[Demo] Add Request Header'
+summary: Traefik plugin to integrate Authentik as a ForwardAuth provider, with enhanced workflow, streamlined configuration, and several bugfixes over the default implementation.
 
 testData:
-  Headers:
-    X-Demo: test
-    X-URL: '{{URL}}'
+  address: https://authentik.example.com

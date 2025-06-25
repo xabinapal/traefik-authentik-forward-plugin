@@ -1,3 +1,3 @@
-module github.com/traefik/plugindemo
+module github.com/xabinapal/traefik-authentik-forward-plugin
 
-go 1.19
+go 1.21
