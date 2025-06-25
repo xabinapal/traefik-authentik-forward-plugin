@@ -1,3 +1,5 @@
+version: 2
+
 run:
   timeout: 3m
   skip-files: []
@@ -8,8 +10,6 @@ linters-settings:
     enable-all: true
     disable:
       - fieldalignment
-  golint:
-    min-confidence: 0
   gocyclo:
     min-complexity: 12
   goconst:
@@ -23,28 +23,17 @@ linters-settings:
   godox:
     keywords:
       - FIXME
-  gofumpt:
-    extra-rules: true
 
 linters:
   enable-all: true
   disable:
-    - deadcode # deprecated
-    - exhaustivestruct # deprecated
-    - golint # deprecated
-    - ifshort # deprecated
-    - interfacer # deprecated
-    - maligned # deprecated
-    - nosnakecase # deprecated
-    - scopelint # deprecated
-    - scopelint # deprecated
-    - structcheck # deprecated
-    - varcheck # deprecated
-    - sqlclosecheck # not relevant (SQL)
-    - rowserrcheck # not relevant (SQL)
-    - execinquery # not relevant (SQL)
+    # SQL-related linters (not relevant)
+    - sqlclosecheck
+    - rowserrcheck
+    # Duplicate functionality
     - cyclop # duplicate of gocyclo
-    - bodyclose # Too many false positives: https://github.com/timakin/bodyclose/issues/30
+    # Too strict/noisy for this project
+    - bodyclose # Too many false positives
     - dupl
     - testpackage
     - tparallel
@@ -53,14 +42,13 @@ linters:
     - wsl
     - exhaustive
     - exhaustruct
-    - goerr113
     - wrapcheck
-    - ifshort
     - noctx
     - lll
-    - gomnd
+    - mnd # was gomnd in v1
     - forbidigo
     - varnamelen
+    - err113 # was goerr113 in v1
 
 issues:
   exclude-use-default: false
