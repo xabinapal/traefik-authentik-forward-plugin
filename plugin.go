@@ -15,9 +15,10 @@ import (
 
 func CreateConfig() *config.RawConfig {
 	return &config.RawConfig{
-		Address:                "",
-		KeepPrefix:             "",
-		UnauthorizedStatusCode: http.StatusUnauthorized,
+		Address:                     "",
+		KeepPrefix:                  "",
+		UnauthorizedStatusCode:      http.StatusUnauthorized,
+		UnauthorizedPathStatusCodes: map[string]uint{},
 	}
 }
 
@@ -41,6 +42,12 @@ func New(ctx context.Context, next http.Handler, config *config.RawConfig, name 
 }
 
 func (a *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	reqUrl, err := httputil.GetRequestURI(req)
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	if strings.HasPrefix(req.URL.Path, a.config.KeepPrefix+authentik.BasePath) {
 		akPath := strings.TrimPrefix(req.URL.Path, a.config.KeepPrefix)
 
@@ -49,7 +56,7 @@ func (a *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		akRes, err := a.requestAuthentik(req, akPath)
+		akRes, err := a.requestAuthentik(req, reqUrl, akPath)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
@@ -58,7 +65,7 @@ func (a *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 		a.serveAuthentik(rw, akRes)
 	} else if a.config.KeepPrefix == "" || strings.HasPrefix(req.URL.Path, a.config.KeepPrefix) {
-		akRes, err := a.requestAuthentik(req, authentik.AuthPath)
+		akRes, err := a.requestAuthentik(req, reqUrl, authentik.AuthPath)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
@@ -68,21 +75,23 @@ func (a *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		if akRes.StatusCode == 200 {
 			a.serveUpstream(rw, req, akRes)
 		} else {
-			a.serveUnauthorized(rw, req)
+			a.serveUnauthorized(rw, req, reqUrl)
 		}
 	} else {
 		a.serveUpstream(rw, req, nil)
 	}
 }
 
-func (a *Plugin) requestAuthentik(req *http.Request, reqPath string) (*http.Response, error) {
-	akReq, err := http.NewRequest(req.Method, a.config.Address+reqPath, nil)
+func (a *Plugin) requestAuthentik(req *http.Request, reqUrl *url.URL, akPath string) (*http.Response, error) {
+	akReq, err := http.NewRequest(req.Method, a.config.Address+akPath, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	akReq.Header.Set("X-Forwarded-Host", req.Host)
-	akReq.Header.Set("X-Original-URI", req.URL.String())
+	akReq.URL.RawQuery = reqUrl.RawQuery
+
+	akReq.Header.Set("X-Forwarded-Host", reqUrl.Host)
+	akReq.Header.Set("X-Original-URI", reqUrl.String())
 
 	for _, c := range authentik.GetCookies(req) {
 		akReq.AddCookie(c)
@@ -163,16 +172,16 @@ func (a *Plugin) serveUpstream(rw http.ResponseWriter, req *http.Request, akRes 
 	a.next.ServeHTTP(rcm, req)
 }
 
-func (a *Plugin) serveUnauthorized(rw http.ResponseWriter, req *http.Request) {
+func (a *Plugin) serveUnauthorized(rw http.ResponseWriter, req *http.Request, reqUrl *url.URL) {
 	statusCode := a.config.GetUnauthorizedStatusCode(req.URL.Path)
 
 	if statusCode >= 300 && statusCode < 400 {
 		loc := url.URL{
-			Scheme: req.URL.Scheme,
-			Host:   req.Host,
+			Scheme: reqUrl.Scheme,
+			Host:   reqUrl.Host,
 			Path:   a.config.KeepPrefix + authentik.BasePath + "/start",
 			RawQuery: url.Values{
-				"rd": {req.URL.String()},
+				"rd": {reqUrl.String()},
 			}.Encode(),
 		}
 
