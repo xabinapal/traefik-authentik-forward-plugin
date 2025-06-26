@@ -23,18 +23,19 @@ func CreateConfig() *config.Config {
 
 type Plugin struct {
 	next   http.Handler
-	config *config.Config
+	config *config.ParsedConfig
 	name   string
 }
 
 func New(ctx context.Context, next http.Handler, config *config.Config, name string) (http.Handler, error) {
-	if err := config.Parse(); err != nil {
+	pc, err := config.Parse()
+	if err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
 	return &Plugin{
 		next:   next,
-		config: config,
+		config: pc,
 		name:   name,
 	}, nil
 }
@@ -163,7 +164,9 @@ func (a *Plugin) serveUpstream(rw http.ResponseWriter, req *http.Request, akRes 
 }
 
 func (a *Plugin) serveUnauthorized(rw http.ResponseWriter, req *http.Request) {
-	if a.config.UnauthorizedStatusCode >= 300 && a.config.UnauthorizedStatusCode < 400 {
+	statusCode := a.config.GetUnauthorizedStatusCode(req.URL.Path)
+
+	if statusCode >= 300 && statusCode < 400 {
 		loc := url.URL{
 			Scheme: req.URL.Scheme,
 			Host:   req.Host,
@@ -176,5 +179,5 @@ func (a *Plugin) serveUnauthorized(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Set("Location", loc.String())
 	}
 
-	rw.WriteHeader(int(a.config.UnauthorizedStatusCode))
+	rw.WriteHeader(statusCode)
 }

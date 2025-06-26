@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 )
 
@@ -19,11 +20,26 @@ type Config struct {
 
 	// The status code to return when the request is unauthorized.
 	UnauthorizedStatusCode uint `json:"unauthorizedStatusCode,omitempty"`
+
+	// Map of path regexes to customize their unauthorized status codes.
+	UnauthorizedPathStatusCodes map[string]uint `json:"unauthorizedPathStatusCodes,omitempty"`
 }
 
-func (c *Config) Parse() error {
+type ParsedConfig struct {
+	Config
+	UnauthorizedStatusCode      int
+	UnauthorizedPathStatusCodes []*PathStatusCodesConfig
+}
+
+type PathStatusCodesConfig struct {
+	PathRegex  *regexp.Regexp
+	PathLength int
+	StatusCode int
+}
+
+func (c *Config) Parse() (*ParsedConfig, error) {
 	if c.Address == "" {
-		return errors.Join(
+		return nil, errors.Join(
 			ErrConfigParse,
 			errors.New("address is required"),
 		)
@@ -31,7 +47,7 @@ func (c *Config) Parse() error {
 
 	c.KeepPrefix = strings.Trim(c.KeepPrefix, "/")
 	if err := ValidateKeepPrefix(c.KeepPrefix); err != nil {
-		return errors.Join(
+		return nil, errors.Join(
 			ErrConfigParse,
 			fmt.Errorf("keepPrefix is not valid: %w", err),
 		)
@@ -43,7 +59,55 @@ func (c *Config) Parse() error {
 		c.UnauthorizedStatusCode = http.StatusUnauthorized
 	}
 
-	return nil
+	pathStatusCodes := make([]*PathStatusCodesConfig, 0, len(c.UnauthorizedPathStatusCodes))
+	for path, statusCode := range c.UnauthorizedPathStatusCodes {
+		if statusCode == 0 {
+			return nil, errors.Join(
+				ErrConfigParse,
+				fmt.Errorf("pathStatusCodes[%s] is not valid", path),
+			)
+		}
+
+		re, err := regexp.Compile("^" + path)
+		if err != nil {
+			return nil, errors.Join(
+				ErrConfigParse,
+				fmt.Errorf("pathStatusCodes[%s] is not valid: %w", path, err),
+			)
+		}
+
+		pathStatusCodes = append(pathStatusCodes, &PathStatusCodesConfig{
+			PathRegex:  re,
+			PathLength: len(path),
+			StatusCode: int(statusCode),
+		})
+	}
+
+	pc := &ParsedConfig{
+		Config:                      *c,
+		UnauthorizedStatusCode:      int(c.UnauthorizedStatusCode),
+		UnauthorizedPathStatusCodes: pathStatusCodes,
+	}
+
+	return pc, nil
+}
+
+func (c *ParsedConfig) GetUnauthorizedStatusCode(path string) int {
+	var match *PathStatusCodesConfig
+
+	for _, psc := range c.UnauthorizedPathStatusCodes {
+		if psc.PathRegex.MatchString(path) {
+			if match == nil || psc.PathLength > match.PathLength {
+				match = psc
+			}
+		}
+	}
+
+	if match != nil {
+		return match.StatusCode
+	}
+
+	return c.UnauthorizedStatusCode
 }
 
 func ValidateKeepPrefix(keepPrefix string) error {

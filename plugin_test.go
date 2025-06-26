@@ -85,8 +85,9 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 		}
 
 		// check that the response status code is the one configured
-		if rw.Code != http.StatusForbidden {
-			t.Errorf("expected status 403, got %d", rw.Code)
+		expectedCode := http.StatusForbidden
+		if rw.Code != expectedCode {
+			t.Errorf("expected status %d, got %d", expectedCode, rw.Code)
 		}
 
 		// check that the location header is not present
@@ -237,6 +238,93 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 
 		if cookies[0].Value != "testuser" {
 			t.Errorf("expected authentik_proxy_user cookie value to be testuser, got %s", cookies[0].Value)
+		}
+	})
+}
+
+func TestServeHTTP_UpstreamPaths_WithPathStatusCodes(t *testing.T) {
+	t.Run("unauthenticated request without path status code", func(t *testing.T) {
+		akServer := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+			rw.WriteHeader(http.StatusUnauthorized)
+		}))
+		defer akServer.Close()
+
+		config := &config.Config{
+			Address:                akServer.URL,
+			KeepPrefix:             "/test",
+			UnauthorizedStatusCode: http.StatusUnauthorized,
+			UnauthorizedPathStatusCodes: map[string]uint{
+				"/test/users/wrong": http.StatusNotFound,
+			},
+		}
+		handler, _ := plugin.New(context.Background(), nil, config, "test")
+
+		req := httptest.NewRequest("GET", "http://example.com/test/users", nil)
+
+		rw := httptest.NewRecorder()
+		handler.ServeHTTP(rw, req)
+
+		// check that the response status code is the one configured
+		expectedCode := http.StatusUnauthorized
+		if rw.Code != expectedCode {
+			t.Errorf("expected status %d, got %d", expectedCode, rw.Code)
+		}
+	})
+
+	t.Run("unauthenticated request with path status code", func(t *testing.T) {
+		akServer := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+			rw.WriteHeader(http.StatusUnauthorized)
+		}))
+		defer akServer.Close()
+
+		config := &config.Config{
+			Address:                akServer.URL,
+			KeepPrefix:             "/test",
+			UnauthorizedStatusCode: http.StatusUnauthorized,
+			UnauthorizedPathStatusCodes: map[string]uint{
+				"/test/users": http.StatusNotFound,
+			},
+		}
+		handler, _ := plugin.New(context.Background(), nil, config, "test")
+
+		req := httptest.NewRequest("GET", "http://example.com/test/users", nil)
+
+		rw := httptest.NewRecorder()
+		handler.ServeHTTP(rw, req)
+
+		// check that the response status code is the one configured
+		expectedCode := http.StatusNotFound
+		if rw.Code != expectedCode {
+			t.Errorf("expected status %d, got %d", expectedCode, rw.Code)
+		}
+	})
+
+	t.Run("unauthenticated request with multiple path status codes", func(t *testing.T) {
+		akServer := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+			rw.WriteHeader(http.StatusUnauthorized)
+		}))
+		defer akServer.Close()
+
+		config := &config.Config{
+			Address:                akServer.URL,
+			KeepPrefix:             "/test",
+			UnauthorizedStatusCode: http.StatusUnauthorized,
+			UnauthorizedPathStatusCodes: map[string]uint{
+				"/test/users":   http.StatusBadRequest,
+				"/test/users/?": http.StatusNotFound,
+			},
+		}
+		handler, _ := plugin.New(context.Background(), nil, config, "test")
+
+		req := httptest.NewRequest("GET", "http://example.com/test/users", nil)
+
+		rw := httptest.NewRecorder()
+		handler.ServeHTTP(rw, req)
+
+		// check that the response status code is the one configured
+		expectedCode := http.StatusNotFound
+		if rw.Code != expectedCode {
+			t.Errorf("expected status %d, got %d", expectedCode, rw.Code)
 		}
 	})
 }
