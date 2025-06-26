@@ -13,8 +13,8 @@ import (
 	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/httputil"
 )
 
-func CreateConfig() *config.Config {
-	return &config.Config{
+func CreateConfig() *config.RawConfig {
+	return &config.RawConfig{
 		Address:                "",
 		KeepPrefix:             "",
 		UnauthorizedStatusCode: http.StatusUnauthorized,
@@ -23,11 +23,11 @@ func CreateConfig() *config.Config {
 
 type Plugin struct {
 	next   http.Handler
-	config *config.ParsedConfig
+	config *config.Config
 	name   string
 }
 
-func New(ctx context.Context, next http.Handler, config *config.Config, name string) (http.Handler, error) {
+func New(ctx context.Context, next http.Handler, config *config.RawConfig, name string) (http.Handler, error) {
 	pc, err := config.Parse()
 	if err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)

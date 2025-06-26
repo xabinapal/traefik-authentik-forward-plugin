@@ -25,7 +25,7 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 			rw.WriteHeader(http.StatusAccepted)
 		})
 
-		config := &config.Config{Address: akServer.URL, KeepPrefix: "/test"}
+		config := &config.RawConfig{Address: akServer.URL, KeepPrefix: "/test"}
 		handler, _ := plugin.New(context.Background(), next, config, "test")
 
 		req := httptest.NewRequest("GET", "http://example.com/other/test/users", nil)
@@ -71,7 +71,7 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 			t.Fatalf("expected next handler not to be called")
 		})
 
-		config := &config.Config{Address: akServer.URL, KeepPrefix: "/test", UnauthorizedStatusCode: http.StatusForbidden}
+		config := &config.RawConfig{Address: akServer.URL, KeepPrefix: "/test", UnauthorizedStatusCode: http.StatusForbidden}
 		handler, _ := plugin.New(context.Background(), next, config, "test")
 
 		req := httptest.NewRequest("GET", "http://example.com/test/users", nil)
@@ -122,7 +122,7 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 			t.Fatalf("expected next handler not to be called")
 		})
 
-		config := &config.Config{Address: akServer.URL, KeepPrefix: "/test", UnauthorizedStatusCode: http.StatusMovedPermanently}
+		config := &config.RawConfig{Address: akServer.URL, KeepPrefix: "/test", UnauthorizedStatusCode: http.StatusMovedPermanently}
 		handler, _ := plugin.New(context.Background(), next, config, "test")
 
 		req := httptest.NewRequest("GET", "http://example.com/test/users", nil)
@@ -196,7 +196,7 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 			rw.WriteHeader(http.StatusAccepted)
 		})
 
-		config := &config.Config{Address: akServer.URL, KeepPrefix: "/test"}
+		config := &config.RawConfig{Address: akServer.URL, KeepPrefix: "/test"}
 		handler, _ := plugin.New(context.Background(), next, config, "test")
 
 		req := httptest.NewRequest("GET", "http://example.com/test/users", nil)
@@ -249,7 +249,7 @@ func TestServeHTTP_UpstreamPaths_WithPathStatusCodes(t *testing.T) {
 		}))
 		defer akServer.Close()
 
-		config := &config.Config{
+		config := &config.RawConfig{
 			Address:                akServer.URL,
 			KeepPrefix:             "/test",
 			UnauthorizedStatusCode: http.StatusUnauthorized,
@@ -277,7 +277,7 @@ func TestServeHTTP_UpstreamPaths_WithPathStatusCodes(t *testing.T) {
 		}))
 		defer akServer.Close()
 
-		config := &config.Config{
+		config := &config.RawConfig{
 			Address:                akServer.URL,
 			KeepPrefix:             "/test",
 			UnauthorizedStatusCode: http.StatusUnauthorized,
@@ -305,7 +305,7 @@ func TestServeHTTP_UpstreamPaths_WithPathStatusCodes(t *testing.T) {
 		}))
 		defer akServer.Close()
 
-		config := &config.Config{
+		config := &config.RawConfig{
 			Address:                akServer.URL,
 			KeepPrefix:             "/test",
 			UnauthorizedStatusCode: http.StatusUnauthorized,
@@ -340,7 +340,7 @@ func TestServeHTTP_AuthentikPaths(t *testing.T) {
 		}))
 		defer akServer.Close()
 
-		config := &config.Config{Address: akServer.URL, KeepPrefix: "/test"}
+		config := &config.RawConfig{Address: akServer.URL, KeepPrefix: "/test"}
 		handler, _ := plugin.New(context.Background(), nil, config, "test")
 
 		req := httptest.NewRequest("GET", "http://example.com/test/outpost.goauthentik.go/auth/start", nil)
@@ -374,7 +374,7 @@ func TestServeHTTP_AuthentikPaths(t *testing.T) {
 		}))
 		defer akServer.Close()
 
-		config := &config.Config{Address: akServer.URL, KeepPrefix: "/test"}
+		config := &config.RawConfig{Address: akServer.URL, KeepPrefix: "/test"}
 		handler, _ := plugin.New(context.Background(), nil, config, "test")
 
 		req := httptest.NewRequest("GET", "http://example.com/test/outpost.goauthentik.go/auth/nginx", nil)
@@ -399,7 +399,7 @@ func TestServeHTTP_AuthentikPaths(t *testing.T) {
 		}))
 		defer akServer.Close()
 
-		config := &config.Config{Address: akServer.URL, KeepPrefix: "/test"}
+		config := &config.RawConfig{Address: akServer.URL, KeepPrefix: "/test"}
 		handler, _ := plugin.New(context.Background(), nil, config, "test")
 
 		req := httptest.NewRequest("GET", "http://example.com/test/outpost.goauthentik.go/static/styles.css", nil)

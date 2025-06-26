@@ -11,7 +11,7 @@ import (
 
 var ErrConfigParse = errors.New("invalid config")
 
-type Config struct {
+type RawConfig struct {
 	// The address of the Authentik server to forward requests to.
 	Address string `json:"address"`
 
@@ -25,8 +25,8 @@ type Config struct {
 	UnauthorizedPathStatusCodes map[string]uint `json:"unauthorizedPathStatusCodes,omitempty"`
 }
 
-type ParsedConfig struct {
-	Config
+type Config struct {
+	RawConfig
 	UnauthorizedStatusCode      int
 	UnauthorizedPathStatusCodes []*PathStatusCodesConfig
 }
@@ -37,7 +37,7 @@ type PathStatusCodesConfig struct {
 	StatusCode int
 }
 
-func (c *Config) Parse() (*ParsedConfig, error) {
+func (c *RawConfig) Parse() (*Config, error) {
 	if c.Address == "" {
 		return nil, errors.Join(
 			ErrConfigParse,
@@ -83,8 +83,8 @@ func (c *Config) Parse() (*ParsedConfig, error) {
 		})
 	}
 
-	pc := &ParsedConfig{
-		Config:                      *c,
+	pc := &Config{
+		RawConfig:                   *c,
 		UnauthorizedStatusCode:      int(c.UnauthorizedStatusCode),
 		UnauthorizedPathStatusCodes: pathStatusCodes,
 	}
@@ -92,7 +92,7 @@ func (c *Config) Parse() (*ParsedConfig, error) {
 	return pc, nil
 }
 
-func (c *ParsedConfig) GetUnauthorizedStatusCode(path string) int {
+func (c *Config) GetUnauthorizedStatusCode(path string) int {
 	var match *PathStatusCodesConfig
 
 	for _, psc := range c.UnauthorizedPathStatusCodes {

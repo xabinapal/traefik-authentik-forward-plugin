@@ -9,7 +9,7 @@ import (
 
 func TestGetUnauthorizedStatusCode(t *testing.T) {
 	t.Run("with global status code", func(t *testing.T) {
-		config := config.Config{
+		config := config.RawConfig{
 			Address:                "https://authentik.example.com",
 			UnauthorizedStatusCode: http.StatusUnauthorized,
 		}
@@ -29,7 +29,7 @@ func TestGetUnauthorizedStatusCode(t *testing.T) {
 	})
 
 	t.Run("with unmatched path status code", func(t *testing.T) {
-		config := config.Config{
+		config := config.RawConfig{
 			Address:                "https://authentik.example.com",
 			UnauthorizedStatusCode: http.StatusUnauthorized,
 			UnauthorizedPathStatusCodes: map[string]uint{
@@ -52,7 +52,7 @@ func TestGetUnauthorizedStatusCode(t *testing.T) {
 	})
 
 	t.Run("with matched path status code", func(t *testing.T) {
-		config := config.Config{
+		config := config.RawConfig{
 			Address:                "https://authentik.example.com",
 			UnauthorizedStatusCode: http.StatusUnauthorized,
 			UnauthorizedPathStatusCodes: map[string]uint{
@@ -75,7 +75,7 @@ func TestGetUnauthorizedStatusCode(t *testing.T) {
 	})
 
 	t.Run("with multiple matched path status codes", func(t *testing.T) {
-		config := config.Config{
+		config := config.RawConfig{
 			Address:                "https://authentik.example.com",
 			UnauthorizedStatusCode: http.StatusUnauthorized,
 			UnauthorizedPathStatusCodes: map[string]uint{
