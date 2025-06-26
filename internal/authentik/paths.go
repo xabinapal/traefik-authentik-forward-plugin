@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	BasePath = "/outpost.goauthentik.go"
+	BasePath = "/outpost.goauthentik.io"
 	AuthPath = BasePath + "/auth/nginx"
 )
 

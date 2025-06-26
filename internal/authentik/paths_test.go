@@ -8,21 +8,21 @@ import (
 
 func TestIsPathAllowed(t *testing.T) {
 	t.Run("allowed paths", func(t *testing.T) {
-		allowed := authentik.IsPathAllowed("/outpost.goauthentik.go/auth/start")
+		allowed := authentik.IsPathAllowed("/outpost.goauthentik.io/auth/start")
 		if !allowed {
 			t.Errorf("expected path to be allowed")
 		}
 	})
 
 	t.Run("restricted paths", func(t *testing.T) {
-		allowed := authentik.IsPathAllowed("/outpost.goauthentik.go/auth/nginx")
+		allowed := authentik.IsPathAllowed("/outpost.goauthentik.io/auth/nginx")
 		if allowed {
 			t.Errorf("expected path to be restricted")
 		}
 	})
 
 	t.Run("default paths", func(t *testing.T) {
-		allowed := authentik.IsPathAllowed("/outpost.goauthentik.go/callback")
+		allowed := authentik.IsPathAllowed("/outpost.goauthentik.io/callback")
 		if !allowed {
 			t.Errorf("expected path to be allowed")
 		}

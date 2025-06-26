@@ -142,7 +142,7 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 		}
 
 		// check that the location header starts authorization flow
-		expectedLocation := "http://example.com/test/outpost.goauthentik.go/start?rd=http%3A%2F%2Fexample.com%2Ftest%2Fusers"
+		expectedLocation := "http://example.com/test/outpost.goauthentik.io/start?rd=http%3A%2F%2Fexample.com%2Ftest%2Fusers"
 		if rw.Header().Get("Location") != expectedLocation {
 			t.Errorf("expected location header to be %s, got %s", expectedLocation, rw.Header().Get("Location"))
 		}
@@ -343,7 +343,7 @@ func TestServeHTTP_AuthentikPaths(t *testing.T) {
 		config := &config.RawConfig{Address: akServer.URL, KeepPrefix: "/test"}
 		handler, _ := plugin.New(context.Background(), nil, config, "test")
 
-		req := httptest.NewRequest("GET", "http://example.com/test/outpost.goauthentik.go/auth/start", nil)
+		req := httptest.NewRequest("GET", "http://example.com/test/outpost.goauthentik.io/auth/start", nil)
 
 		rw := httptest.NewRecorder()
 
@@ -377,7 +377,7 @@ func TestServeHTTP_AuthentikPaths(t *testing.T) {
 		config := &config.RawConfig{Address: akServer.URL, KeepPrefix: "/test"}
 		handler, _ := plugin.New(context.Background(), nil, config, "test")
 
-		req := httptest.NewRequest("GET", "http://example.com/test/outpost.goauthentik.go/auth/nginx", nil)
+		req := httptest.NewRequest("GET", "http://example.com/test/outpost.goauthentik.io/auth/nginx", nil)
 
 		rw := httptest.NewRecorder()
 		handler.ServeHTTP(rw, req)
@@ -402,7 +402,7 @@ func TestServeHTTP_AuthentikPaths(t *testing.T) {
 		config := &config.RawConfig{Address: akServer.URL, KeepPrefix: "/test"}
 		handler, _ := plugin.New(context.Background(), nil, config, "test")
 
-		req := httptest.NewRequest("GET", "http://example.com/test/outpost.goauthentik.go/static/styles.css", nil)
+		req := httptest.NewRequest("GET", "http://example.com/test/outpost.goauthentik.io/static/styles.css", nil)
 
 		rw := httptest.NewRecorder()
 		handler.ServeHTTP(rw, req)
