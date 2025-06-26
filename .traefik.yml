@@ -8,3 +8,4 @@ summary: Traefik plugin to integrate Authentik as a ForwardAuth provider, with e
 
 testData:
   address: https://authentik.example.com
+  keepPrefix: /

@@ -1,59 +1,155 @@
 package traefik_authentik_forward_plugin
 
 import (
-	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
-	"text/template"
+	"net/url"
+	"strings"
 
-	"github.com/xabinapal/traefik-authentik-forward-plugin/internal"
+	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/authentik"
+	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/config"
+	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/httputil"
 )
 
-func CreateConfig() *internal.Config {
-	return &internal.Config{
-		Headers: make(map[string]string),
+func CreateConfig() *config.Config {
+	return &config.Config{
+		Address:    "",
+		KeepPrefix: "",
 	}
 }
 
 type Plugin struct {
-	next     http.Handler
-	headers  map[string]string
-	name     string
-	template *template.Template
+	next   http.Handler
+	config *config.Config
+	name   string
 }
 
-func New(ctx context.Context, next http.Handler, config *internal.Config, name string) (http.Handler, error) {
-	if len(config.Headers) == 0 {
-		return nil, fmt.Errorf("headers cannot be empty")
+func New(ctx context.Context, next http.Handler, config *config.Config, name string) (http.Handler, error) {
+	if err := config.Parse(); err != nil {
+		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
 	return &Plugin{
-		headers:  config.Headers,
-		next:     next,
-		name:     name,
-		template: template.New("demo").Delims("[[", "]]"),
+		next:   next,
+		config: config,
+		name:   name,
 	}, nil
 }
 
 func (a *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	for key, value := range a.headers {
-		tmpl, err := a.template.Parse(value)
+	if strings.HasPrefix(req.URL.Path, a.config.KeepPrefix+authentik.BasePath) {
+		akPath := strings.TrimPrefix(req.URL.Path, a.config.KeepPrefix)
+
+		if !authentik.IsPathAllowed(akPath) {
+			rw.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		akRes, err := a.requestAuthentik(req, akPath)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		defer akRes.Body.Close()
 
-		writer := &bytes.Buffer{}
-
-		err = tmpl.Execute(writer, req)
+		a.serveAuthentik(rw, akRes)
+	} else {
+		akRes, err := a.requestAuthentik(req, authentik.AuthPath)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		defer akRes.Body.Close()
 
-		req.Header.Set(key, writer.String())
+		if akRes.StatusCode == 200 {
+			a.serveUpstream(rw, req, akRes)
+		} else {
+			a.serveAuthentik(rw, akRes)
+		}
+	}
+}
+
+func (a *Plugin) requestAuthentik(req *http.Request, reqPath string) (*http.Response, error) {
+	akReq, err := http.NewRequest(req.Method, a.config.Address+reqPath, nil)
+	if err != nil {
+		return nil, err
 	}
 
-	a.next.ServeHTTP(rw, req)
+	akReq.Header.Set("X-Forwarded-Host", req.Host)
+	akReq.Header.Set("X-Original-URI", req.URL.String())
+
+	for _, c := range authentik.GetCookies(req) {
+		akReq.AddCookie(c)
+	}
+
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse // Don't follow redirects
+		},
+	}
+	akRes, err := client.Do(akReq)
+	if err != nil {
+		return nil, err
+	}
+
+	return akRes, nil
+}
+
+func (a *Plugin) serveAuthentik(rw http.ResponseWriter, akRes *http.Response) {
+	for k, vs := range akRes.Header {
+		rw.Header().Del(k)
+		for _, v := range vs {
+			rw.Header().Add(k, v)
+		}
+	}
+
+	location := akRes.Header.Get("Location")
+	if location != "" {
+		locUrl, err := url.Parse(location)
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if locUrl.IsAbs() && strings.HasPrefix(location, a.config.Address+authentik.BasePath) {
+			location = strings.TrimPrefix(location, a.config.Address+authentik.BasePath)
+			location = a.config.KeepPrefix + location
+		} else if !locUrl.IsAbs() && strings.HasPrefix(location, authentik.BasePath) {
+			location = a.config.KeepPrefix + location
+		}
+
+		rw.Header().Set("Location", location)
+	}
+
+	rw.WriteHeader(akRes.StatusCode)
+
+	if _, err := io.Copy(rw, akRes.Body); err != nil {
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func (a *Plugin) serveUpstream(rw http.ResponseWriter, req *http.Request, akRes *http.Response) {
+	headers := authentik.GetHeaders(akRes)
+	for k, vs := range headers {
+		for _, v := range vs {
+			req.Header.Add(k, v)
+		}
+	}
+
+	cookies := authentik.GetCookies(akRes)
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+
+	rcm := &httputil.ResponseCookieModifier{
+		ResponseWriter: rw,
+
+		Cookies:       cookies,
+		CookiesPrefix: authentik.CookiePrefix,
+	}
+
+	a.next.ServeHTTP(rcm, req)
 }
