@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 )
@@ -15,6 +16,9 @@ type Config struct {
 
 	// Part of the request path to keep, if required.
 	KeepPrefix string `json:"keepPrefix,omitempty"`
+
+	// The status code to return when the request is unauthorized.
+	UnauthorizedStatusCode uint `json:"unauthorizedStatusCode,omitempty"`
 }
 
 func (c *Config) Parse() error {
@@ -33,6 +37,10 @@ func (c *Config) Parse() error {
 		)
 	} else if c.KeepPrefix != "" {
 		c.KeepPrefix = "/" + c.KeepPrefix
+	}
+
+	if c.UnauthorizedStatusCode == 0 {
+		c.UnauthorizedStatusCode = http.StatusUnauthorized
 	}
 
 	return nil

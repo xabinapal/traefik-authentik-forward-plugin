@@ -15,8 +15,9 @@ import (
 
 func CreateConfig() *config.Config {
 	return &config.Config{
-		Address:    "",
-		KeepPrefix: "",
+		Address:                "",
+		KeepPrefix:             "",
+		UnauthorizedStatusCode: http.StatusUnauthorized,
 	}
 }
 
@@ -55,7 +56,7 @@ func (a *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		defer akRes.Body.Close()
 
 		a.serveAuthentik(rw, akRes)
-	} else {
+	} else if a.config.KeepPrefix == "" || strings.HasPrefix(req.URL.Path, a.config.KeepPrefix) {
 		akRes, err := a.requestAuthentik(req, authentik.AuthPath)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
@@ -66,8 +67,10 @@ func (a *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		if akRes.StatusCode == 200 {
 			a.serveUpstream(rw, req, akRes)
 		} else {
-			a.serveAuthentik(rw, akRes)
+			a.serveUnauthorized(rw, req)
 		}
+	} else {
+		a.serveUpstream(rw, req, nil)
 	}
 }
 
@@ -114,7 +117,7 @@ func (a *Plugin) serveAuthentik(rw http.ResponseWriter, akRes *http.Response) {
 		}
 
 		if locUrl.IsAbs() && strings.HasPrefix(location, a.config.Address+authentik.BasePath) {
-			location = strings.TrimPrefix(location, a.config.Address+authentik.BasePath)
+			location = strings.TrimPrefix(location, a.config.Address)
 			location = a.config.KeepPrefix + location
 		} else if !locUrl.IsAbs() && strings.HasPrefix(location, authentik.BasePath) {
 			location = a.config.KeepPrefix + location
@@ -132,6 +135,11 @@ func (a *Plugin) serveAuthentik(rw http.ResponseWriter, akRes *http.Response) {
 }
 
 func (a *Plugin) serveUpstream(rw http.ResponseWriter, req *http.Request, akRes *http.Response) {
+	if akRes == nil {
+		a.next.ServeHTTP(rw, req)
+		return
+	}
+
 	headers := authentik.GetHeaders(akRes)
 	for k, vs := range headers {
 		for _, v := range vs {
@@ -152,4 +160,21 @@ func (a *Plugin) serveUpstream(rw http.ResponseWriter, req *http.Request, akRes 
 	}
 
 	a.next.ServeHTTP(rcm, req)
+}
+
+func (a *Plugin) serveUnauthorized(rw http.ResponseWriter, req *http.Request) {
+	if a.config.UnauthorizedStatusCode >= 300 && a.config.UnauthorizedStatusCode < 400 {
+		loc := url.URL{
+			Scheme: req.URL.Scheme,
+			Host:   req.Host,
+			Path:   a.config.KeepPrefix + authentik.BasePath + "/start",
+			RawQuery: url.Values{
+				"rd": {req.URL.String()},
+			}.Encode(),
+		}
+
+		rw.Header().Set("Location", loc.String())
+	}
+
+	rw.WriteHeader(int(a.config.UnauthorizedStatusCode))
 }
