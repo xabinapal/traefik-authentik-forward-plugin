@@ -1,0 +1,30 @@
+---
+version: 1
+metadata:
+  name: Custom - Test Provider
+  labels:
+    blueprints.goauthentik.io/instantiate: "true"
+context:
+  app_name: whoami
+  app_url: http://whoami.localhost
+entries:
+  - model: authentik_providers_proxy.proxyprovider
+    identifiers:
+      name: whoami-provider
+    id: whoami-provider
+    attrs:
+      mode: forward_single
+      external_host: !Context app_url
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      authentication_flow: !Find [authentik_flows.flow, [slug, default-authentication-flow]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      access_token_validity: hours=24
+      intercept_header_auth: false
+
+  - model: authentik_core.application
+    identifiers:
+      slug: whoami-application
+    attrs:
+      name: !Context app_name
+      provider: !KeyOf whoami-provider
+      meta_launch_url: !Context app_url

@@ -1,0 +1,83 @@
+---
+services:
+  postgresql:
+    image: docker.io/library/postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: authentik
+      POSTGRES_PASSWORD: authentik
+      POSTGRES_DB: authentik
+    healthcheck:
+      test: pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
+      interval: 5s
+    volumes:
+      - postgres:/var/lib/postgresql/data
+
+  valkey:
+    image: docker.io/valkey/valkey:7.2.9-alpine
+    restart: unless-stopped
+    command: --save 60 1 --loglevel warning
+    healthcheck:
+      test: valkey-cli ping | grep PONG
+      interval: 5s
+    volumes:
+      - valkey:/data
+
+  akserver:
+    image: ghcr.io/goauthentik/server:2025.6.2
+    restart: unless-stopped
+    command: server
+    environment:
+      AUTHENTIK_EXTERNAL_URL: http://akserver.localhost:9000
+
+      AUTHENTIK_SECRET_KEY: authentik
+
+      AUTHENTIK_POSTGRESQL__HOST: postgresql
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: authentik
+
+      AUTHENTIK_REDIS__HOST: valkey
+    ports:
+      - 9000:9000
+    volumes:
+      - ./blueprints:/blueprints/custom:ro
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  akworker:
+    image: ghcr.io/goauthentik/server:2025.6.2
+    restart: unless-stopped
+    command: worker
+    user: root
+    environment:
+      AUTHENTIK_EXTERNAL_URL: http://akserver.localhost:9000
+
+      AUTHENTIK_SECRET_KEY: authentik
+      
+      AUTHENTIK_REDIS__HOST: valkey
+
+      AUTHENTIK_POSTGRESQL__HOST: postgresql
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: authentik
+
+      AUTHENTIK_BOOTSTRAP_PASSWORD: authentik
+      AUTHENTIK_BOOTSTRAP_TOKEN: authentik
+      AUTHENTIK_BOOTSTRAP_EMAIL: admin@authentik.localhost
+    volumes:
+      - ./blueprints:/blueprints/custom:ro
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+volumes:
+  postgres:
+    driver: local
+  valkey:
+    driver: local

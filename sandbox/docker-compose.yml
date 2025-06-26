@@ -1,0 +1,10 @@
+---
+name: traefik-authentik-forward-plugin-sandbox
+
+include:
+  - docker-compose.traefik.yml
+  - docker-compose.authentik.yml
+
+networks:
+  default:
+    name: traefik-authentik-forward-plugin-sandbox
