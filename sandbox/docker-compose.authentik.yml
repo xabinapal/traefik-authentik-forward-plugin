@@ -10,8 +10,11 @@ services:
     healthcheck:
       test: pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
       interval: 5s
+      start_period: 60s
+      start_interval: 5s
     volumes:
-      - postgres:/var/lib/postgresql/data
+      - type: tmpfs
+        target: /var/lib/postgresql/data
 
   valkey:
     image: docker.io/valkey/valkey:7.2.9-alpine
@@ -19,34 +22,12 @@ services:
     command: --save 60 1 --loglevel warning
     healthcheck:
       test: valkey-cli ping | grep PONG
-      interval: 5s
+      interval: 60s
+      start_period: 60s
+      start_interval: 5s
     volumes:
-      - valkey:/data
-
-  akserver:
-    image: ghcr.io/goauthentik/server:2025.6.2
-    restart: unless-stopped
-    command: server
-    environment:
-      AUTHENTIK_EXTERNAL_URL: http://akserver.localhost:9000
-
-      AUTHENTIK_SECRET_KEY: authentik
-
-      AUTHENTIK_POSTGRESQL__HOST: postgresql
-      AUTHENTIK_POSTGRESQL__USER: authentik
-      AUTHENTIK_POSTGRESQL__NAME: authentik
-      AUTHENTIK_POSTGRESQL__PASSWORD: authentik
-
-      AUTHENTIK_REDIS__HOST: valkey
-    ports:
-      - 9000:9000
-    volumes:
-      - ./blueprints:/blueprints/custom:ro
-    depends_on:
-      postgresql:
-        condition: service_healthy
-      valkey:
-        condition: service_healthy
+      - type: tmpfs
+        target: /data
 
   akworker:
     image: ghcr.io/goauthentik/server:2025.6.2
@@ -68,16 +49,48 @@ services:
       AUTHENTIK_BOOTSTRAP_PASSWORD: authentik
       AUTHENTIK_BOOTSTRAP_TOKEN: authentik
       AUTHENTIK_BOOTSTRAP_EMAIL: admin@authentik.localhost
+    healthcheck:
+      test: ak healthcheck
+      interval: 60s
+      start_period: 300s
+      start_interval: 5s
     volumes:
-      - ./blueprints:/blueprints/custom:ro
+      - type: bind
+        source: ./blueprints
+        target: /blueprints/custom
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
       postgresql:
         condition: service_healthy
       valkey:
         condition: service_healthy
 
-volumes:
-  postgres:
-    driver: local
-  valkey:
-    driver: local
+  akserver:
+    image: ghcr.io/goauthentik/server:2025.6.2
+    restart: unless-stopped
+    command: server
+    environment:
+      AUTHENTIK_EXTERNAL_URL: http://akserver.localhost:9000
+
+      AUTHENTIK_SECRET_KEY: authentik
+
+      AUTHENTIK_POSTGRESQL__HOST: postgresql
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: authentik
+
+      AUTHENTIK_REDIS__HOST: valkey
+    healthcheck:
+      test: ak healthcheck
+      interval: 60s
+      start_period: 300s
+      start_interval: 5s
+    ports:
+      - 9000:9000
+    volumes:
+      - ./blueprints:/blueprints/custom:ro
+    depends_on:
+      akworker:
+        condition: service_healthy

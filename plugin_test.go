@@ -313,7 +313,7 @@ func TestServeHTTP_UpstreamPaths_WithPathStatusCodes(t *testing.T) {
 }
 
 func TestServeHTTP_AuthentikPaths(t *testing.T) {
-	t.Run("explicitly allowed authentik path", func(t *testing.T) {
+	t.Run("allowed authentik path", func(t *testing.T) {
 		akCalled := true
 		akServer := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 			akCalled = true
@@ -326,7 +326,7 @@ func TestServeHTTP_AuthentikPaths(t *testing.T) {
 		config := &config.RawConfig{Address: akServer.URL}
 		handler, _ := plugin.New(context.Background(), nil, config, "test")
 
-		req := httptest.NewRequest("GET", "http://example.com/outpost.goauthentik.io/auth/start", nil)
+		req := httptest.NewRequest("GET", "http://example.com/outpost.goauthentik.io/start", nil)
 
 		rw := httptest.NewRecorder()
 
@@ -352,7 +352,7 @@ func TestServeHTTP_AuthentikPaths(t *testing.T) {
 		}
 	})
 
-	t.Run("explicitly denied authentik path", func(t *testing.T) {
+	t.Run("restricted authentik path", func(t *testing.T) {
 		akServer := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 			// check that the authentik server was not called
 			t.Fatalf("expected authentik server not to be called")
@@ -372,44 +372,6 @@ func TestServeHTTP_AuthentikPaths(t *testing.T) {
 		actualCode := rw.Code
 		if actualCode != expectedCode {
 			t.Errorf("expected status %d, got %d", expectedCode, actualCode)
-		}
-	})
-
-	t.Run("allowed by default authentik path", func(t *testing.T) {
-		akCalled := true
-		akServer := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-			akCalled = true
-
-			rw.WriteHeader(http.StatusOK)
-			rw.Write([]byte("i'm a teapot"))
-		}))
-		defer akServer.Close()
-
-		config := &config.RawConfig{Address: akServer.URL}
-		handler, _ := plugin.New(context.Background(), nil, config, "test")
-
-		req := httptest.NewRequest("GET", "http://example.com/outpost.goauthentik.io/static/styles.css", nil)
-
-		rw := httptest.NewRecorder()
-		handler.ServeHTTP(rw, req)
-
-		// check that the authentik server was called
-		if !akCalled {
-			t.Fatalf("expected authentik server to be called")
-		}
-
-		// check that the response status code comes from the authentik server
-		expectedCode := http.StatusOK
-		actualCode := rw.Code
-		if actualCode != expectedCode {
-			t.Errorf("expected status %d, got %d", expectedCode, actualCode)
-		}
-
-		// check that the response body comes from the authentik server
-		expectedBody := "i'm a teapot"
-		actualBody := rw.Body.String()
-		if actualBody != expectedBody {
-			t.Errorf("expected content to be %s, got %s", expectedBody, actualBody)
 		}
 	})
 }

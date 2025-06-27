@@ -1,17 +1,19 @@
+# yaml-language-server: $schema=https://goauthentik.io/blueprints/schema.json
 ---
 version: 1
 metadata:
-  name: Custom - Test Provider
+  name: sandbox-proxy
   labels:
     blueprints.goauthentik.io/instantiate: "true"
+    blueprints.goauthentik.io/description: Create a proxy provider and an application
 context:
   app_name: whoami
   app_url: http://whoami.localhost
 entries:
   - model: authentik_providers_proxy.proxyprovider
+    id: whoami-provider
     identifiers:
       name: whoami-provider
-    id: whoami-provider
     attrs:
       mode: forward_single
       external_host: !Context app_url
@@ -22,6 +24,7 @@ entries:
       intercept_header_auth: false
 
   - model: authentik_core.application
+    id: whoami-application
     identifiers:
       slug: whoami-application
     attrs:

@@ -1,36 +1,19 @@
 package authentik
 
-import (
-	"regexp"
-)
+import "strings"
 
 const (
 	BasePath = "/outpost.goauthentik.io"
 	AuthPath = BasePath + "/auth/nginx"
 )
 
-var (
-	AuthentikAllowedPaths = []*regexp.Regexp{
-		regexp.MustCompile("^" + BasePath + "/auth/start/?" + "$"),
+func IsPathAllowedDownstream(akPath string) bool {
+	if akPath == BasePath {
+		return false
 	}
 
-	AuthentikRestrictedPaths = []*regexp.Regexp{
-		regexp.MustCompile("^" + BasePath + "/?" + "$"),
-		regexp.MustCompile("^" + BasePath + "/auth/.*" + "$"),
-	}
-)
-
-func IsPathAllowed(akPath string) bool {
-	for _, pattern := range AuthentikAllowedPaths {
-		if pattern.MatchString(akPath) {
-			return true
-		}
-	}
-
-	for _, pattern := range AuthentikRestrictedPaths {
-		if pattern.MatchString(akPath) {
-			return false
-		}
+	if strings.HasPrefix(akPath, BasePath+"/auth") {
+		return false
 	}
 
 	return true

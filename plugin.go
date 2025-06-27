@@ -48,8 +48,9 @@ func (a *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	if strings.HasPrefix(reqUrl.Path, authentik.BasePath) {
-		if !authentik.IsPathAllowed(reqUrl.Path) {
+		if !authentik.IsPathAllowedDownstream(reqUrl.Path) {
 			rw.WriteHeader(http.StatusNotFound)
+			rw.Write([]byte(http.StatusText(http.StatusNotFound)))
 			return
 		}
 
@@ -199,4 +200,5 @@ func (a *Plugin) serveUnauthorized(rw http.ResponseWriter, reqUrl *url.URL) {
 	}
 
 	rw.WriteHeader(statusCode)
+	rw.Write([]byte(http.StatusText(statusCode)))
 }

@@ -6,6 +6,7 @@ services:
     command:
       - --log.level=DEBUG
       - --accesslog=true
+      - --ping=true
       - --api.insecure=true
       - --api.dashboard=true
       - --entrypoints.web.address=:80

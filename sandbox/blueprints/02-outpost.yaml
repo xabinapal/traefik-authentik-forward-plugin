@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://goauthentik.io/blueprints/schema.json
+---
+version: 1
+metadata:
+  name: sandbox-outpost
+  labels:
+    blueprints.goauthentik.io/instantiate: "true"
+    blueprints.goauthentik.io/description: Add proxy provider to embedded outpost
+context: {}
+entries:
+  - model: authentik_outposts.outpost
+    id: embedded-outpost
+    identifiers:
+      name: authentik Embedded Outpost
+    state: present
+    attrs:
+      providers:
+        - !Find [
+            authentik_providers_proxy.proxyprovider,
+            [name, whoami-provider],
+        ]
