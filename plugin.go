@@ -48,8 +48,8 @@ func (a *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if strings.HasPrefix(req.URL.Path, a.config.KeepPrefix+authentik.BasePath) {
-		akPath := strings.TrimPrefix(req.URL.Path, a.config.KeepPrefix)
+	if strings.HasPrefix(reqUrl.Path, a.config.KeepPrefix+authentik.BasePath) {
+		akPath := strings.TrimPrefix(reqUrl.Path, a.config.KeepPrefix)
 
 		if !authentik.IsPathAllowed(akPath) {
 			rw.WriteHeader(http.StatusNotFound)
@@ -64,7 +64,7 @@ func (a *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		defer akRes.Body.Close()
 
 		a.serveAuthentik(rw, akRes)
-	} else if a.config.KeepPrefix == "" || strings.HasPrefix(req.URL.Path, a.config.KeepPrefix) {
+	} else if a.config.KeepPrefix == "" || strings.HasPrefix(reqUrl.Path, a.config.KeepPrefix) {
 		akRes, err := a.requestAuthentik(req, reqUrl, authentik.AuthPath)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
@@ -75,7 +75,7 @@ func (a *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		if akRes.StatusCode == 200 {
 			a.serveUpstream(rw, req, akRes)
 		} else {
-			a.serveUnauthorized(rw, req, reqUrl)
+			a.serveUnauthorized(rw, reqUrl)
 		}
 	} else {
 		a.serveUpstream(rw, req, nil)
@@ -145,6 +145,17 @@ func (a *Plugin) serveAuthentik(rw http.ResponseWriter, akRes *http.Response) {
 }
 
 func (a *Plugin) serveUpstream(rw http.ResponseWriter, req *http.Request, akRes *http.Response) {
+	akUserHeaders := []string{}
+	for k := range req.Header {
+		if strings.HasPrefix(k, "X-Authentik-") {
+			akUserHeaders = append(akUserHeaders, k)
+		}
+	}
+
+	for _, h := range akUserHeaders {
+		req.Header.Del(h)
+	}
+
 	if akRes == nil {
 		a.next.ServeHTTP(rw, req)
 		return
@@ -172,8 +183,8 @@ func (a *Plugin) serveUpstream(rw http.ResponseWriter, req *http.Request, akRes 
 	a.next.ServeHTTP(rcm, req)
 }
 
-func (a *Plugin) serveUnauthorized(rw http.ResponseWriter, req *http.Request, reqUrl *url.URL) {
-	statusCode := a.config.GetUnauthorizedStatusCode(req.URL.Path)
+func (a *Plugin) serveUnauthorized(rw http.ResponseWriter, reqUrl *url.URL) {
+	statusCode := a.config.GetUnauthorizedStatusCode(reqUrl.Path)
 
 	if statusCode >= 300 && statusCode < 400 {
 		loc := url.URL{
