@@ -10,7 +10,7 @@ import (
 
 func TestGetHeaders(t *testing.T) {
 	t.Run("header filtering", func(t *testing.T) {
-		// Add headers to the response
+		// add headers to the response
 		responseHeaders := http.Header{
 			"Content-Type":      []string{"application/json"},
 			"Cache-Control":     []string{"no-cache"},
@@ -21,15 +21,15 @@ func TestGetHeaders(t *testing.T) {
 			"X-Authentik-Email": []string{"user@example.com"},
 		}
 
-		// Create a mock response
+		// create a mock response
 		resp := &http.Response{
 			Header: responseHeaders,
 		}
 
-		// Call the function
+		// call the function
 		result := authentik.GetHeaders(resp)
 
-		// Check headers
+		// check headers
 		expectedHeaders := http.Header{
 			"X-Authentik-User":  []string{"user456"},
 			"X-Authentik-Email": []string{"user@example.com"},
@@ -40,7 +40,7 @@ func TestGetHeaders(t *testing.T) {
 			actualHeaders = append(actualHeaders, header)
 		}
 
-		// Check each expected header is present
+		// check each expected header is present
 		for key := range expectedHeaders {
 			found := slices.Contains(actualHeaders, key)
 			if !found {
@@ -48,7 +48,7 @@ func TestGetHeaders(t *testing.T) {
 			}
 		}
 
-		// Check that no unexpected headers are present
+		// check that no unexpected headers are present
 		for key := range result {
 			if !slices.Contains(actualHeaders, key) {
 				t.Errorf("unexpected header %s found in result", key)

@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"strings"
 )
 
 var ErrConfigParse = errors.New("invalid config")
@@ -14,9 +13,6 @@ var ErrConfigParse = errors.New("invalid config")
 type RawConfig struct {
 	// The address of the Authentik server to forward requests to.
 	Address string `json:"address"`
-
-	// Part of the request path to keep, if required.
-	KeepPrefix string `json:"keepPrefix,omitempty"`
 
 	// The status code to return when the request is unauthorized.
 	UnauthorizedStatusCode uint `json:"unauthorizedStatusCode,omitempty"`
@@ -43,16 +39,6 @@ func (c *RawConfig) Parse() (*Config, error) {
 			ErrConfigParse,
 			errors.New("address is required"),
 		)
-	}
-
-	c.KeepPrefix = strings.Trim(c.KeepPrefix, "/")
-	if err := ValidateKeepPrefix(c.KeepPrefix); err != nil {
-		return nil, errors.Join(
-			ErrConfigParse,
-			fmt.Errorf("keepPrefix is not valid: %w", err),
-		)
-	} else if c.KeepPrefix != "" {
-		c.KeepPrefix = "/" + c.KeepPrefix
 	}
 
 	if c.UnauthorizedStatusCode == 0 {
@@ -110,12 +96,12 @@ func (c *Config) GetUnauthorizedStatusCode(path string) int {
 	return c.UnauthorizedStatusCode
 }
 
-func ValidateKeepPrefix(keepPrefix string) error {
-	if keepPrefix == "" {
+func ValidatePrefix(prefix string) error {
+	if prefix == "" {
 		return nil
 	}
 
-	u, err := url.Parse(keepPrefix)
+	u, err := url.Parse(prefix)
 	if err != nil {
 		return err
 	}
@@ -126,7 +112,7 @@ func ValidateKeepPrefix(keepPrefix string) error {
 		u.RawQuery == "" &&
 		u.Fragment == "" &&
 		u.Path != "" &&
-		keepPrefix == u.Path
+		prefix == u.Path
 
 	if !isValid {
 		return fmt.Errorf("must be a valid url path")

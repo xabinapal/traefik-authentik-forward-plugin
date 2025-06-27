@@ -10,13 +10,13 @@ import (
 
 func TestGetCookies(t *testing.T) {
 	t.Run("cookie filtering", func(t *testing.T) {
-		// Create a mock request
+		// create a mock request
 		req, err := http.NewRequest("GET", "http://authentik.example.com", nil)
 		if err != nil {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
-		// Add cookies to the request
+		// add cookies to the request
 		cookies := []*http.Cookie{
 			{Name: "session_id", Value: "abc123"},
 			{Name: "csrf_token", Value: "xyz789"},
@@ -30,10 +30,10 @@ func TestGetCookies(t *testing.T) {
 			req.AddCookie(cookie)
 		}
 
-		// Call the function
+		// call the function
 		result := authentik.GetCookies(req)
 
-		// Check cookies
+		// check cookies
 		expectedCookies := []string{
 			"authentik_proxy_session1",
 			"authentik_proxy_session2",
@@ -44,7 +44,7 @@ func TestGetCookies(t *testing.T) {
 			actualCookies = append(actualCookies, cookie.Name)
 		}
 
-		// Check each expected cookie is present
+		// check each expected cookie is present
 		for _, expectedCookie := range expectedCookies {
 			found := slices.Contains(actualCookies, expectedCookie)
 			if !found {
@@ -52,7 +52,7 @@ func TestGetCookies(t *testing.T) {
 			}
 		}
 
-		// Check that no unexpected cookies are present
+		// check that no unexpected cookies are present
 		for _, cookie := range result {
 			if !slices.Contains(expectedCookies, cookie.Name) {
 				t.Errorf("unexpected cookie %s found in result", cookie.Name)

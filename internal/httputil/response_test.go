@@ -11,10 +11,10 @@ import (
 
 func TestResponseModifier_WriteHeader(t *testing.T) {
 	t.Run("cookie injection", func(t *testing.T) {
-		// Create a response recorder
+		// create a response recorder
 		rw := httptest.NewRecorder()
 
-		// Add existing cookies to the response writer
+		// add existing cookies to the response writer
 		cookies := []string{
 			"first_cookie=abc123; Path=/",
 			"test_1=old_test_1; Path=/",
@@ -26,7 +26,7 @@ func TestResponseModifier_WriteHeader(t *testing.T) {
 			rw.Header().Add("Set-Cookie", cookie)
 		}
 
-		// Create response modifier
+		// create response modifier
 		rcm := &httputil.ResponseCookieModifier{
 			ResponseWriter: rw,
 			CookiesPrefix:  "test_",
@@ -36,15 +36,15 @@ func TestResponseModifier_WriteHeader(t *testing.T) {
 			},
 		}
 
-		// Call the function
+		// call the function
 		rcm.WriteHeader(318)
 
-		// Check status code
+		// check status code
 		if rw.Code != 318 {
 			t.Errorf("expected status code 318, got %d", rw.Code)
 		}
 
-		// Check cookies
+		// check cookies
 		expectedCookies := []string{
 			"first_cookie=abc123; Path=/",
 			"other_cookie=value; Path=/",
@@ -61,7 +61,7 @@ func TestResponseModifier_WriteHeader(t *testing.T) {
 			return
 		}
 
-		// Check each expected cookie is present
+		// check each expected cookie is present
 		for _, expectedCookie := range expectedCookies {
 			found := slices.Contains(actualCookies, expectedCookie)
 			if !found {
@@ -69,7 +69,7 @@ func TestResponseModifier_WriteHeader(t *testing.T) {
 			}
 		}
 
-		// Check that no unexpected cookies are present
+		// check that no unexpected cookies are present
 		for _, cookie := range actualCookies {
 			if !slices.Contains(expectedCookies, cookie) {
 				t.Errorf("unexpected cookie %q found in actual cookies", cookie)

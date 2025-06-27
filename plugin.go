@@ -16,7 +16,6 @@ import (
 func CreateConfig() *config.RawConfig {
 	return &config.RawConfig{
 		Address:                     "",
-		KeepPrefix:                  "",
 		UnauthorizedStatusCode:      http.StatusUnauthorized,
 		UnauthorizedPathStatusCodes: map[string]uint{},
 	}
@@ -48,23 +47,21 @@ func (a *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if strings.HasPrefix(reqUrl.Path, a.config.KeepPrefix+authentik.BasePath) {
-		akPath := strings.TrimPrefix(reqUrl.Path, a.config.KeepPrefix)
-
-		if !authentik.IsPathAllowed(akPath) {
+	if strings.HasPrefix(reqUrl.Path, authentik.BasePath) {
+		if !authentik.IsPathAllowed(reqUrl.Path) {
 			rw.WriteHeader(http.StatusNotFound)
 			return
 		}
 
-		akRes, err := a.requestAuthentik(req, reqUrl, akPath)
+		akRes, err := a.requestAuthentik(req, reqUrl, reqUrl.Path)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		defer akRes.Body.Close()
 
-		a.serveAuthentik(rw, akRes)
-	} else if a.config.KeepPrefix == "" || strings.HasPrefix(reqUrl.Path, a.config.KeepPrefix) {
+		a.serveAuthentik(rw, reqUrl, akRes)
+	} else {
 		akRes, err := a.requestAuthentik(req, reqUrl, authentik.AuthPath)
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
@@ -77,8 +74,6 @@ func (a *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		} else {
 			a.serveUnauthorized(rw, reqUrl)
 		}
-	} else {
-		a.serveUpstream(rw, req, nil)
 	}
 }
 
@@ -99,7 +94,7 @@ func (a *Plugin) requestAuthentik(req *http.Request, reqUrl *url.URL, akPath str
 
 	client := &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse // Don't follow redirects
+			return http.ErrUseLastResponse // don't follow redirects
 		},
 	}
 	akRes, err := client.Do(akReq)
@@ -110,7 +105,7 @@ func (a *Plugin) requestAuthentik(req *http.Request, reqUrl *url.URL, akPath str
 	return akRes, nil
 }
 
-func (a *Plugin) serveAuthentik(rw http.ResponseWriter, akRes *http.Response) {
+func (a *Plugin) serveAuthentik(rw http.ResponseWriter, reqUrl *url.URL, akRes *http.Response) {
 	for k, vs := range akRes.Header {
 		rw.Header().Del(k)
 		for _, v := range vs {
@@ -120,20 +115,24 @@ func (a *Plugin) serveAuthentik(rw http.ResponseWriter, akRes *http.Response) {
 
 	location := akRes.Header.Get("Location")
 	if location != "" {
-		locUrl, err := url.Parse(location)
-		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		if locUrl.IsAbs() && strings.HasPrefix(location, a.config.Address+authentik.BasePath) {
+		if strings.HasPrefix(location, a.config.Address+authentik.BasePath) {
 			location = strings.TrimPrefix(location, a.config.Address)
-			location = a.config.KeepPrefix + location
-		} else if !locUrl.IsAbs() && strings.HasPrefix(location, authentik.BasePath) {
-			location = a.config.KeepPrefix + location
+
+			locUrl, err := url.Parse(location)
+			if err != nil {
+				http.Error(rw, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			locUrl.Scheme = reqUrl.Scheme
+			locUrl.Host = reqUrl.Host
+
+			location = locUrl.String()
 		}
 
 		rw.Header().Set("Location", location)
+		rw.WriteHeader(akRes.StatusCode)
+		return
 	}
 
 	rw.WriteHeader(akRes.StatusCode)
@@ -190,7 +189,7 @@ func (a *Plugin) serveUnauthorized(rw http.ResponseWriter, reqUrl *url.URL) {
 		loc := url.URL{
 			Scheme: reqUrl.Scheme,
 			Host:   reqUrl.Host,
-			Path:   a.config.KeepPrefix + authentik.BasePath + "/start",
+			Path:   authentik.BasePath + "/start",
 			RawQuery: url.Values{
 				"rd": {reqUrl.String()},
 			}.Encode(),

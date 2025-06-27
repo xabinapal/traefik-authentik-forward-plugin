@@ -11,40 +11,6 @@ import (
 )
 
 func TestServeHTTP_UpstreamPaths(t *testing.T) {
-	t.Run("request to unobserved prefix", func(t *testing.T) {
-		akServer := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-			// check that the authentik server was not called
-			t.Fatalf("expected authentik server not to be called")
-		}))
-		defer akServer.Close()
-
-		nextCalled := false
-		next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-			nextCalled = true
-
-			rw.WriteHeader(http.StatusAccepted)
-		})
-
-		config := &config.RawConfig{Address: akServer.URL, KeepPrefix: "/test"}
-		handler, _ := plugin.New(context.Background(), next, config, "test")
-
-		req := httptest.NewRequest("GET", "http://example.com/other/test/users", nil)
-
-		rw := httptest.NewRecorder()
-		handler.ServeHTTP(rw, req)
-
-		// check that the next handler was called
-		if !nextCalled {
-			t.Fatalf("expected next handler to be called")
-		}
-
-		// check that the response status code comes from the upstream
-		expectedCode := http.StatusAccepted
-		if rw.Code != expectedCode {
-			t.Errorf("expected status %d, got %d", expectedCode, rw.Code)
-		}
-	})
-
 	t.Run("unauthenticated request without redirect", func(t *testing.T) {
 		akCalled := true
 		akServer := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -52,14 +18,16 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 
 			// check that the forwarded host header is set
 			expectedHost := "example.com"
-			if req.Header.Get("X-Forwarded-Host") != expectedHost {
-				t.Errorf("expected X-Forwarded-Host header to be %s, got %s", expectedHost, req.Header.Get("X-Forwarded-Host"))
+			actualHost := req.Header.Get("X-Forwarded-Host")
+			if actualHost != expectedHost {
+				t.Errorf("expected X-Forwarded-Host header to be %s, got %s", expectedHost, actualHost)
 			}
 
 			// check that the original uri header is set
-			expectedURI := "http://example.com/test/users"
-			if req.Header.Get("X-Original-URI") != expectedURI {
-				t.Errorf("expected X-Original-URI header to be %s, got %s", expectedURI, req.Header.Get("X-Original-URI"))
+			expectedURI := "http://example.com/users"
+			actualURI := req.Header.Get("X-Original-URI")
+			if actualURI != expectedURI {
+				t.Errorf("expected X-Original-URI header to be %s, got %s", expectedURI, actualURI)
 			}
 
 			rw.WriteHeader(http.StatusUnauthorized)
@@ -71,10 +39,13 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 			t.Fatalf("expected next handler not to be called")
 		})
 
-		config := &config.RawConfig{Address: akServer.URL, KeepPrefix: "/test", UnauthorizedStatusCode: http.StatusForbidden}
+		config := &config.RawConfig{
+			Address:                akServer.URL,
+			UnauthorizedStatusCode: http.StatusForbidden,
+		}
 		handler, _ := plugin.New(context.Background(), next, config, "test")
 
-		req := httptest.NewRequest("GET", "http://example.com/test/users", nil)
+		req := httptest.NewRequest("GET", "http://example.com/users", nil)
 
 		rw := httptest.NewRecorder()
 		handler.ServeHTTP(rw, req)
@@ -103,14 +74,16 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 
 			// check that the forwarded host header is set
 			expectedHost := "example.com"
-			if req.Header.Get("X-Forwarded-Host") != expectedHost {
-				t.Errorf("expected X-Forwarded-Host header to be %s, got %s", expectedHost, req.Header.Get("X-Forwarded-Host"))
+			actualHost := req.Header.Get("X-Forwarded-Host")
+			if actualHost != expectedHost {
+				t.Errorf("expected X-Forwarded-Host header to be %s, got %s", expectedHost, actualHost)
 			}
 
 			// check that the original uri header is set
-			expectedURI := "http://example.com/test/users"
-			if req.Header.Get("X-Original-URI") != expectedURI {
-				t.Errorf("expected X-Original-URI header to be %s, got %s", expectedURI, req.Header.Get("X-Original-URI"))
+			expectedURI := "http://example.com/users"
+			actualURI := req.Header.Get("X-Original-URI")
+			if actualURI != expectedURI {
+				t.Errorf("expected X-Original-URI header to be %s, got %s", expectedURI, actualURI)
 			}
 
 			rw.WriteHeader(http.StatusUnauthorized)
@@ -122,10 +95,13 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 			t.Fatalf("expected next handler not to be called")
 		})
 
-		config := &config.RawConfig{Address: akServer.URL, KeepPrefix: "/test", UnauthorizedStatusCode: http.StatusMovedPermanently}
+		config := &config.RawConfig{
+			Address:                akServer.URL,
+			UnauthorizedStatusCode: http.StatusMovedPermanently,
+		}
 		handler, _ := plugin.New(context.Background(), next, config, "test")
 
-		req := httptest.NewRequest("GET", "http://example.com/test/users", nil)
+		req := httptest.NewRequest("GET", "http://example.com/users", nil)
 
 		rw := httptest.NewRecorder()
 		handler.ServeHTTP(rw, req)
@@ -137,14 +113,16 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 
 		// check that the response status code is the one configured
 		expectedCode := http.StatusMovedPermanently
-		if rw.Code != expectedCode {
-			t.Errorf("expected status %d, got %d", expectedCode, rw.Code)
+		actualCode := rw.Code
+		if actualCode != expectedCode {
+			t.Errorf("expected status %d, got %d", expectedCode, actualCode)
 		}
 
 		// check that the location header starts authorization flow
-		expectedLocation := "http://example.com/test/outpost.goauthentik.io/start?rd=http%3A%2F%2Fexample.com%2Ftest%2Fusers"
-		if rw.Header().Get("Location") != expectedLocation {
-			t.Errorf("expected location header to be %s, got %s", expectedLocation, rw.Header().Get("Location"))
+		expectedLocation := "http://example.com/outpost.goauthentik.io/start?rd=http%3A%2F%2Fexample.com%2Fusers"
+		actualLocation := rw.Header().Get("Location")
+		if actualLocation != expectedLocation {
+			t.Errorf("expected location header to be %s, got %s", expectedLocation, actualLocation)
 		}
 	})
 
@@ -155,20 +133,23 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 
 			// check that the forwarded host header is set
 			expectedHost := "example.com"
-			if req.Header.Get("X-Forwarded-Host") != expectedHost {
-				t.Errorf("expected X-Forwarded-Host header to be %s, got %s", expectedHost, req.Header.Get("X-Forwarded-Host"))
+			actualHost := req.Header.Get("X-Forwarded-Host")
+			if actualHost != expectedHost {
+				t.Errorf("expected X-Forwarded-Host header to be %s, got %s", expectedHost, actualHost)
 			}
 
 			// check that the original uri header is set
-			expectedURI := "http://example.com/test/users"
-			if req.Header.Get("X-Original-URI") != expectedURI {
-				t.Errorf("expected X-Original-URI header to be %s, got %s", expectedURI, req.Header.Get("X-Original-URI"))
+			expectedURI := "http://example.com/users"
+			actualURI := req.Header.Get("X-Original-URI")
+			if actualURI != expectedURI {
+				t.Errorf("expected X-Original-URI header to be %s, got %s", expectedURI, actualURI)
 			}
 
 			// check that the authentication cookie is set
 			expectedCookie := "authentik_proxy_user=testuser"
-			if req.Header.Get("Cookie") != expectedCookie {
-				t.Errorf("expected Cookie header to be %s, got %s", expectedCookie, req.Header.Get("Cookie"))
+			actualCookie := req.Header.Get("Cookie")
+			if actualCookie != expectedCookie {
+				t.Errorf("expected Cookie header to be %s, got %s", expectedCookie, actualCookie)
 			}
 
 			rw.Header().Set("X-Authentik-User", "testuser")
@@ -184,8 +165,9 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 
 			// check that authentik headers were added to the request
 			expectedUser := "testuser"
-			if req.Header.Get("X-Authentik-User") != expectedUser {
-				t.Errorf("expected X-Authentik-User header to be %s, got %s", expectedUser, req.Header.Get("X-Authentik-User"))
+			actualUser := req.Header.Get("X-Authentik-User")
+			if actualUser != expectedUser {
+				t.Errorf("expected X-Authentik-User header to be %s, got %s", expectedUser, actualUser)
 			}
 
 			// check that authentik cookies were added to the request
@@ -196,10 +178,10 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 			rw.WriteHeader(http.StatusAccepted)
 		})
 
-		config := &config.RawConfig{Address: akServer.URL, KeepPrefix: "/test"}
+		config := &config.RawConfig{Address: akServer.URL}
 		handler, _ := plugin.New(context.Background(), next, config, "test")
 
-		req := httptest.NewRequest("GET", "http://example.com/test/users", nil)
+		req := httptest.NewRequest("GET", "http://example.com/users", nil)
 		req.AddCookie(&http.Cookie{Name: "authentik_proxy_user", Value: "testuser"})
 
 		rw := httptest.NewRecorder()
@@ -217,8 +199,9 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 
 		// check that the response status code comes from the upstream
 		expectedCode := http.StatusAccepted
-		if rw.Code != expectedCode {
-			t.Errorf("expected status %d, got %d", expectedCode, rw.Code)
+		actualCode := rw.Code
+		if actualCode != expectedCode {
+			t.Errorf("expected status %d, got %d", expectedCode, actualCode)
 		}
 
 		// check that the authentik headers were not added to the response
@@ -251,23 +234,23 @@ func TestServeHTTP_UpstreamPaths_WithPathStatusCodes(t *testing.T) {
 
 		config := &config.RawConfig{
 			Address:                akServer.URL,
-			KeepPrefix:             "/test",
 			UnauthorizedStatusCode: http.StatusUnauthorized,
 			UnauthorizedPathStatusCodes: map[string]uint{
-				"/test/users/wrong": http.StatusNotFound,
+				"/users/wrong": http.StatusNotFound,
 			},
 		}
 		handler, _ := plugin.New(context.Background(), nil, config, "test")
 
-		req := httptest.NewRequest("GET", "http://example.com/test/users", nil)
+		req := httptest.NewRequest("GET", "http://example.com/users", nil)
 
 		rw := httptest.NewRecorder()
 		handler.ServeHTTP(rw, req)
 
 		// check that the response status code is the one configured
 		expectedCode := http.StatusUnauthorized
-		if rw.Code != expectedCode {
-			t.Errorf("expected status %d, got %d", expectedCode, rw.Code)
+		actualCode := rw.Code
+		if actualCode != expectedCode {
+			t.Errorf("expected status %d, got %d", expectedCode, actualCode)
 		}
 	})
 
@@ -279,23 +262,23 @@ func TestServeHTTP_UpstreamPaths_WithPathStatusCodes(t *testing.T) {
 
 		config := &config.RawConfig{
 			Address:                akServer.URL,
-			KeepPrefix:             "/test",
 			UnauthorizedStatusCode: http.StatusUnauthorized,
 			UnauthorizedPathStatusCodes: map[string]uint{
-				"/test/users": http.StatusNotFound,
+				"/users": http.StatusNotFound,
 			},
 		}
 		handler, _ := plugin.New(context.Background(), nil, config, "test")
 
-		req := httptest.NewRequest("GET", "http://example.com/test/users", nil)
+		req := httptest.NewRequest("GET", "http://example.com/users", nil)
 
 		rw := httptest.NewRecorder()
 		handler.ServeHTTP(rw, req)
 
 		// check that the response status code is the one configured
 		expectedCode := http.StatusNotFound
-		if rw.Code != expectedCode {
-			t.Errorf("expected status %d, got %d", expectedCode, rw.Code)
+		actualCode := rw.Code
+		if actualCode != expectedCode {
+			t.Errorf("expected status %d, got %d", expectedCode, actualCode)
 		}
 	})
 
@@ -307,24 +290,24 @@ func TestServeHTTP_UpstreamPaths_WithPathStatusCodes(t *testing.T) {
 
 		config := &config.RawConfig{
 			Address:                akServer.URL,
-			KeepPrefix:             "/test",
 			UnauthorizedStatusCode: http.StatusUnauthorized,
 			UnauthorizedPathStatusCodes: map[string]uint{
-				"/test/users":   http.StatusBadRequest,
-				"/test/users/?": http.StatusNotFound,
+				"/users":   http.StatusBadRequest,
+				"/users/?": http.StatusNotFound,
 			},
 		}
 		handler, _ := plugin.New(context.Background(), nil, config, "test")
 
-		req := httptest.NewRequest("GET", "http://example.com/test/users", nil)
+		req := httptest.NewRequest("GET", "http://example.com/users", nil)
 
 		rw := httptest.NewRecorder()
 		handler.ServeHTTP(rw, req)
 
 		// check that the response status code is the one configured
 		expectedCode := http.StatusNotFound
-		if rw.Code != expectedCode {
-			t.Errorf("expected status %d, got %d", expectedCode, rw.Code)
+		actualCode := rw.Code
+		if actualCode != expectedCode {
+			t.Errorf("expected status %d, got %d", expectedCode, actualCode)
 		}
 	})
 }
@@ -340,10 +323,10 @@ func TestServeHTTP_AuthentikPaths(t *testing.T) {
 		}))
 		defer akServer.Close()
 
-		config := &config.RawConfig{Address: akServer.URL, KeepPrefix: "/test"}
+		config := &config.RawConfig{Address: akServer.URL}
 		handler, _ := plugin.New(context.Background(), nil, config, "test")
 
-		req := httptest.NewRequest("GET", "http://example.com/test/outpost.goauthentik.io/auth/start", nil)
+		req := httptest.NewRequest("GET", "http://example.com/outpost.goauthentik.io/auth/start", nil)
 
 		rw := httptest.NewRecorder()
 
@@ -356,14 +339,16 @@ func TestServeHTTP_AuthentikPaths(t *testing.T) {
 
 		// check that the response status code comes from the authentik server
 		expectedCode := http.StatusTeapot
-		if rw.Code != expectedCode {
-			t.Errorf("expected status %d, got %d", expectedCode, rw.Code)
+		actualCode := rw.Code
+		if actualCode != expectedCode {
+			t.Errorf("expected status %d, got %d", expectedCode, actualCode)
 		}
 
 		// check that the response body comes from the authentik server
 		expectedBody := "i'm a teapot"
-		if rw.Body.String() != expectedBody {
-			t.Errorf("expected content to be %s, got %s", expectedBody, rw.Body.String())
+		actualBody := rw.Body.String()
+		if actualBody != expectedBody {
+			t.Errorf("expected content to be %s, got %s", expectedBody, actualBody)
 		}
 	})
 
@@ -374,18 +359,19 @@ func TestServeHTTP_AuthentikPaths(t *testing.T) {
 		}))
 		defer akServer.Close()
 
-		config := &config.RawConfig{Address: akServer.URL, KeepPrefix: "/test"}
+		config := &config.RawConfig{Address: akServer.URL}
 		handler, _ := plugin.New(context.Background(), nil, config, "test")
 
-		req := httptest.NewRequest("GET", "http://example.com/test/outpost.goauthentik.io/auth/nginx", nil)
+		req := httptest.NewRequest("GET", "http://example.com/outpost.goauthentik.io/auth/nginx", nil)
 
 		rw := httptest.NewRecorder()
 		handler.ServeHTTP(rw, req)
 
 		// check that the response status code is 404
 		expectedCode := http.StatusNotFound
-		if rw.Code != expectedCode {
-			t.Errorf("expected status %d, got %d", expectedCode, rw.Code)
+		actualCode := rw.Code
+		if actualCode != expectedCode {
+			t.Errorf("expected status %d, got %d", expectedCode, actualCode)
 		}
 	})
 
@@ -399,10 +385,10 @@ func TestServeHTTP_AuthentikPaths(t *testing.T) {
 		}))
 		defer akServer.Close()
 
-		config := &config.RawConfig{Address: akServer.URL, KeepPrefix: "/test"}
+		config := &config.RawConfig{Address: akServer.URL}
 		handler, _ := plugin.New(context.Background(), nil, config, "test")
 
-		req := httptest.NewRequest("GET", "http://example.com/test/outpost.goauthentik.io/static/styles.css", nil)
+		req := httptest.NewRequest("GET", "http://example.com/outpost.goauthentik.io/static/styles.css", nil)
 
 		rw := httptest.NewRecorder()
 		handler.ServeHTTP(rw, req)
@@ -414,14 +400,16 @@ func TestServeHTTP_AuthentikPaths(t *testing.T) {
 
 		// check that the response status code comes from the authentik server
 		expectedCode := http.StatusOK
-		if rw.Code != expectedCode {
-			t.Errorf("expected status %d, got %d", expectedCode, rw.Code)
+		actualCode := rw.Code
+		if actualCode != expectedCode {
+			t.Errorf("expected status %d, got %d", expectedCode, actualCode)
 		}
 
 		// check that the response body comes from the authentik server
 		expectedBody := "i'm a teapot"
-		if rw.Body.String() != expectedBody {
-			t.Errorf("expected content to be %s, got %s", expectedBody, rw.Body.String())
+		actualBody := rw.Body.String()
+		if actualBody != expectedBody {
+			t.Errorf("expected content to be %s, got %s", expectedBody, actualBody)
 		}
 	})
 }

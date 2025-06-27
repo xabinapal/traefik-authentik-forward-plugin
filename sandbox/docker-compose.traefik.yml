@@ -30,8 +30,8 @@ services:
     labels:
       - traefik.enable=true
       - traefik.http.routers.whoami.rule=Host(`whoami.localhost`)
-      - traefik.http.routers.whoami.middlewares=whoami_authentikforward
-      - traefik.http.middlewares.whoami_stripprefix.stripPrefix.prefixes=/login
+      - traefik.http.routers.whoami.middlewares=whoami_stripprefix,whoami_authentikforward
+      - traefik.http.middlewares.whoami_stripprefix.stripPrefix.prefixes=/test
       - traefik.http.middlewares.whoami_authentikforward.plugin.authentikForwardPlugin.address=http://akserver:9000
       - traefik.http.middlewares.whoami_authentikforward.plugin.authentikForwardPlugin.unauthorizedStatusCode=401
       - traefik.http.middlewares.whoami_authentikforward.plugin.authentikForwardPlugin.unauthorizedPathStatusCodes./login=302
