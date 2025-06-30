@@ -1,19 +1,20 @@
 {
   "name": "e2e",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {},
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "author": "Xabier Napal",
+  "license": "Apache-2.0",
+  "description": "End-to-end test environment for traefik-authentik-forward-plugin",
+  "scripts": {
+    "test": "playwright test",
+    "test:dev": "playwright test --ui"
+  },
   "dependencies": {
+    "docker-compose": "^1.2.0",
     "http-status-codes": "^2.3.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.53.1",
     "@types/node": "^24.0.4",
-    "docker-compose": "^1.2.0"
+    "typescript": "^5.8.3"
   }
 }

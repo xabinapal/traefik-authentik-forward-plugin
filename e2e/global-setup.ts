@@ -1,15 +1,10 @@
 import path from "path";
 
-import {
-  chromium,
-  expect,
-  Logger,
-  PlaywrightTestConfig,
-} from "@playwright/test";
+import { chromium } from "@playwright/test";
 
 import * as dockerCompose from "docker-compose";
 
-export default async function globalSetup(config: PlaywrightTestConfig) {
+export default async function globalSetup() {
   console.log("Starting docker compose sandbox services...");
 
   await dockerCompose.upAll({
@@ -19,7 +14,7 @@ export default async function globalSetup(config: PlaywrightTestConfig) {
 
   console.log("Started Docker compose sandbox services");
 
-  console.log("Waiting for docker compose sandbox services to start...");
+  console.log("Waiting for docker compose sandbox services to be ready...");
 
   const browser = await chromium.launch();
   const page = await browser.newPage();
@@ -29,7 +24,10 @@ export default async function globalSetup(config: PlaywrightTestConfig) {
     const traefik = await page.goto("http://traefik.localhost:8080/ping/");
     traefikStatusCode = traefik?.status() || 0;
 
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    if (traefikStatusCode !== 200) {
+      console.log("Traefik not ready yet...");
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
   }
 
   let authentikStatusCode = 0;
@@ -39,10 +37,13 @@ export default async function globalSetup(config: PlaywrightTestConfig) {
     );
     authentikStatusCode = authentik?.status() || 0;
 
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    if (authentikStatusCode !== 200) {
+      console.log("Authentik not ready yet...");
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
   }
 
   await browser.close();
 
-  console.log("Docker compose sandbox services started");
+  console.log("Docker compose sandbox services are ready");
 }

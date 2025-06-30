@@ -8,12 +8,20 @@ metadata:
     blueprints.goauthentik.io/description: Add proxy provider to embedded outpost
 context: {}
 entries:
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: sandbox-proxy
+      required: true
+
   - model: authentik_outposts.outpost
     id: embedded-outpost
     identifiers:
       name: authentik Embedded Outpost
     state: present
     attrs:
+      config:
+        authentik_host: http://authentik.localhost:9000
       providers:
         - !Find [
             authentik_providers_proxy.proxyprovider,

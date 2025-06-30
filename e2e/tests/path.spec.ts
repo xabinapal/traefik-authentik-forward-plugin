@@ -19,9 +19,7 @@ test.describe("restricted", () => {
     },
   ].forEach(({ path, status }) => {
     test(`should return ${status} with ${path}`, async ({ request }) => {
-      const response = await request.get(`http://whoami.localhost/${path}`, {
-        maxRedirects: 0,
-      });
+      const response = await request.get(`http://whoami.localhost/${path}`);
       expect(response.status()).toBe(status);
     });
   });
