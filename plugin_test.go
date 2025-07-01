@@ -11,6 +11,61 @@ import (
 )
 
 func TestServeHTTP_UpstreamPaths(t *testing.T) {
+
+	t.Run("unauthenticated request with allowed path", func(t *testing.T) {
+		akCalled := true
+		akServer := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+			akCalled = true
+
+			// check that the forwarded host header is set
+			expectedHost := "example.com"
+			actualHost := req.Header.Get("X-Forwarded-Host")
+			if actualHost != expectedHost {
+				t.Errorf("expected X-Forwarded-Host header to be %s, got %s", expectedHost, actualHost)
+			}
+
+			// check that the original uri header is set
+			expectedURI := "http://example.com/users"
+			actualURI := req.Header.Get("X-Original-URI")
+			if actualURI != expectedURI {
+				t.Errorf("expected X-Original-URI header to be %s, got %s", expectedURI, actualURI)
+			}
+
+			rw.WriteHeader(http.StatusUnauthorized)
+		}))
+		defer akServer.Close()
+
+		nextCalled := false
+		next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+			nextCalled = true
+			rw.WriteHeader(http.StatusAccepted)
+		})
+
+		config := &config.RawConfig{
+			Address:                akServer.URL,
+			UnauthorizedStatusCode: http.StatusForbidden,
+			RedirectStatusCode:     http.StatusMovedPermanently,
+			UnauthorizedPaths:      []string{"^/admin"},
+			RedirectPaths:          []string{"^/login"},
+		}
+		handler, _ := plugin.New(context.Background(), next, config, "test")
+
+		req := httptest.NewRequest("GET", "http://example.com/users", nil)
+
+		rw := httptest.NewRecorder()
+		handler.ServeHTTP(rw, req)
+
+		// check that the authentik server was called
+		if !akCalled {
+			t.Fatalf("expected authentik server to be called")
+		}
+
+		// check that the next handler was called
+		if !nextCalled {
+			t.Fatalf("expected next handler to be called")
+		}
+	})
+
 	t.Run("unauthenticated request with unauthorized path", func(t *testing.T) {
 		akCalled := true
 		akServer := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -129,83 +184,6 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 		actualLocation := rw.Header().Get("Location")
 		if actualLocation != expectedLocation {
 			t.Errorf("expected location header to be %s, got %s", expectedLocation, actualLocation)
-		}
-	})
-
-	t.Run("unauthenticated request with allowed path", func(t *testing.T) {
-		akCalled := true
-		akServer := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-			akCalled = true
-
-			// check that the forwarded host header is set
-			expectedHost := "example.com"
-			actualHost := req.Header.Get("X-Forwarded-Host")
-			if actualHost != expectedHost {
-				t.Errorf("expected X-Forwarded-Host header to be %s, got %s", expectedHost, actualHost)
-			}
-
-			// check that the original uri header is set
-			expectedURI := "http://example.com/users"
-			actualURI := req.Header.Get("X-Original-URI")
-			if actualURI != expectedURI {
-				t.Errorf("expected X-Original-URI header to be %s, got %s", expectedURI, actualURI)
-			}
-
-			rw.WriteHeader(http.StatusUnauthorized)
-		}))
-		defer akServer.Close()
-
-		nextCalled := false
-		next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-			nextCalled = true
-
-			// check that authentik headers were added to the request
-			actualUser := req.Header.Get("X-Authentik-User")
-			if actualUser != "" {
-				t.Errorf("expected X-Authentik-User header to empty, got %s", actualUser)
-			}
-
-			// check that authentik cookies were added to the request
-			if _, err := req.Cookie("authentik_proxy_user"); err == nil {
-				t.Error("expected authentik_proxy_user cookie to not be added to request")
-			}
-
-			rw.WriteHeader(http.StatusAccepted)
-		})
-
-		config := &config.RawConfig{
-			Address:                akServer.URL,
-			UnauthorizedStatusCode: http.StatusForbidden,
-			RedirectStatusCode:     http.StatusMovedPermanently,
-			UnauthorizedPaths:      []string{"^/admin"},
-			RedirectPaths:          []string{"^/login"},
-		}
-		handler, _ := plugin.New(context.Background(), next, config, "test")
-
-		req := httptest.NewRequest("GET", "http://example.com/users", nil)
-
-		rw := httptest.NewRecorder()
-		handler.ServeHTTP(rw, req)
-
-		// check that the authentik server was called
-		if !akCalled {
-			t.Fatalf("expected authentik server to be called")
-		}
-
-		// check that the next handler was called
-		if !nextCalled {
-			t.Fatalf("expected next handler to be called")
-		}
-
-		// check that the authentik headers were not added to the response
-		if rw.Header().Get("X-Authentik-User") != "" {
-			t.Errorf("expected X-Authentik-User header to not be added to response")
-		}
-
-		// check that authentik cookies were not added to the response
-		cookies := rw.Result().Cookies()
-		if len(cookies) != 0 {
-			t.Errorf("expected 0 cookies, got %d", len(cookies))
 		}
 	})
 

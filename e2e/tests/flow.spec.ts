@@ -58,19 +58,33 @@ test.describe("authentication", () => {
     expect(await page.content()).toContain("X-Authentik-Username: akadmin");
   });
 
-  test("should return unauthorized after logout", async ({
-    sharedContextPage: page,
-  }) => {
-    // go to logout page
-    await page.goto("http://whoami.localhost/outpost.goauthentik.io/sign_out");
+  test.describe("logout", () => {
+    test.beforeAll(async ({ sharedContextPage: page }) => {
+      // go to logout page
+      await page.goto("http://whoami.localhost/outpost.goauthentik.io/sign_out");
+  
+      // wait for redirect
+      await page.waitForURL("http://authentik.localhost:9000/**");
+    });
 
-    // wait for redirect
-    await page.waitForURL("http://authentik.localhost:9000/**");
+    test("should return ok on /allow after logout", async ({
+      sharedContextPage: page,
+    }) => {
+      // go to main page
+      const response = (await page.goto("http://whoami.localhost/allow")) as Response;
 
-    // go to main page
-    const response = (await page.goto("http://whoami.localhost")) as Response;
+      // check for upstream
+      expect(response.status()).toBe(StatusCodes.OK);
+    });
 
-    // check for upstream
-    expect(response.status()).toBe(StatusCodes.UNAUTHORIZED);
+    test("should return unauthorized on /deny after logout", async ({
+      sharedContextPage: page,
+    }) => {
+      // go to main page
+      const response = (await page.goto("http://whoami.localhost/deny")) as Response;
+
+      // check for upstream
+      expect(response.status()).toBe(StatusCodes.UNAUTHORIZED);
+    });
   });
 });

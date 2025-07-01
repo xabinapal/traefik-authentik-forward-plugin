@@ -3,6 +3,15 @@ import { StatusCodes } from "http-status-codes";
 
 import { test } from "../fixtures";
 
+test("should return ok with /allow", async ({ request }) => {
+  const response = await request.get("http://whoami.localhost/allow");
+  expect(response.status()).toBe(StatusCodes.OK);
+
+  const body = await response.text();
+  expect(body).toContain("X-Forwarded-Host: whoami.localhost");
+  expect(body).not.toContain("X-Authentik-User");
+});
+
 test("should return unauthorized with /deny", async ({ request }) => {
   const response = await request.get("http://whoami.localhost/deny");
   expect(response.status()).toBe(StatusCodes.UNAUTHORIZED);
