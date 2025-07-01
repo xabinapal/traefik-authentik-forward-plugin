@@ -38,7 +38,7 @@ services:
       AUTHENTIK_EXTERNAL_URL: http://akserver.localhost:9000
 
       AUTHENTIK_SECRET_KEY: authentik
-      
+
       AUTHENTIK_REDIS__HOST: valkey
 
       AUTHENTIK_POSTGRESQL__HOST: postgresql

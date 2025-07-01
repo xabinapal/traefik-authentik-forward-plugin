@@ -17,9 +17,15 @@ entries:
     attrs:
       mode: forward_single
       external_host: !Context app_url
-      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
-      authentication_flow: !Find [authentik_flows.flow, [slug, default-authentication-flow]]
-      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      authorization_flow:
+        !Find [
+          authentik_flows.flow,
+          [slug, default-provider-authorization-implicit-consent],
+        ]
+      authentication_flow:
+        !Find [authentik_flows.flow, [slug, default-authentication-flow]]
+      invalidation_flow:
+        !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
       access_token_validity: hours=24
       intercept_header_auth: false
 
