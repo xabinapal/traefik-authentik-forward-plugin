@@ -52,7 +52,7 @@ func (a *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	if strings.HasPrefix(reqUrl.Path, authentik.BasePath) {
 		if !authentik.IsPathAllowedDownstream(reqUrl.Path) {
 			rw.WriteHeader(http.StatusNotFound)
-			rw.Write([]byte(http.StatusText(http.StatusNotFound)))
+			_, _ = rw.Write([]byte(http.StatusText(http.StatusNotFound)))
 			return
 		}
 
@@ -61,7 +61,7 @@ func (a *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		defer akRes.Body.Close()
+		defer func() { _ = akRes.Body.Close() }()
 
 		a.serveAuthentik(rw, reqUrl, akRes)
 	} else {
@@ -70,7 +70,7 @@ func (a *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		defer akRes.Body.Close()
+		defer func() { _ = akRes.Body.Close() }()
 
 		if sc := a.config.GetUnauthorizedStatusCode(reqUrl.Path); sc == http.StatusOK || akRes.StatusCode == 200 {
 			a.serveUpstream(rw, req, akRes)
@@ -200,5 +200,5 @@ func (a *Plugin) serveUnauthorized(rw http.ResponseWriter, reqUrl *url.URL, sc i
 	}
 
 	rw.WriteHeader(sc)
-	rw.Write([]byte(http.StatusText(sc)))
+	_, _ = rw.Write([]byte(http.StatusText(sc)))
 }

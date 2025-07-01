@@ -293,7 +293,7 @@ func TestServeHTTP_AuthentikPaths(t *testing.T) {
 			akCalled = true
 
 			rw.WriteHeader(http.StatusTeapot)
-			rw.Write([]byte("i'm a teapot"))
+			_, _ = rw.Write([]byte("i'm a teapot"))
 		}))
 		defer akServer.Close()
 
