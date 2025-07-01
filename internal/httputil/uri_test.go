@@ -8,6 +8,22 @@ import (
 )
 
 func TestGetRequestURI(t *testing.T) {
+	t.Run("request with invalid url", func(t *testing.T) {
+		// if an url is invalid and url.Parse throws an error,
+		// the error should be returned
+		req := httptest.NewRequest("GET", "http://localhost", nil)
+		req.RequestURI = "://localhost"
+
+		uri, err := httputil.GetRequestURI(req)
+		if err == nil {
+			t.Fatalf("expected error, got nil")
+		}
+
+		// check that the uri is nil
+		if uri != nil {
+			t.Errorf("expected uri to be nil, got %v", uri)
+		}
+	})
 
 	t.Run("request with no scheme", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/path?query=value", nil)

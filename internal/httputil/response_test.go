@@ -16,6 +16,8 @@ func TestResponseModifier_WriteHeader(t *testing.T) {
 
 		// add existing cookies to the response writer
 		cookies := []string{
+			"empty=",
+			"=bogon; Path=/",
 			"first_cookie=abc123; Path=/",
 			"test_1=old_test_1; Path=/",
 			"test_2=old_test_2; Path=/",
@@ -46,6 +48,7 @@ func TestResponseModifier_WriteHeader(t *testing.T) {
 
 		// check cookies
 		expectedCookies := []string{
+			"empty=",
 			"first_cookie=abc123; Path=/",
 			"other_cookie=value; Path=/",
 			"test_1=new_test_1; Path=/",

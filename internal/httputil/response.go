@@ -18,7 +18,7 @@ func (rcm *ResponseCookieModifier) WriteHeader(code int) {
 
 	for _, c := range cookies {
 		name := parseCookieName(c)
-		if strings.HasPrefix(name, rcm.CookiesPrefix) {
+		if name == "" || strings.HasPrefix(name, rcm.CookiesPrefix) {
 			continue
 		}
 

@@ -26,4 +26,4 @@ entries:
         - !Find [
             authentik_providers_proxy.proxyprovider,
             [name, whoami-provider],
-        ]
+          ]

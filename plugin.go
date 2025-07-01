@@ -15,9 +15,11 @@ import (
 
 func CreateConfig() *config.RawConfig {
 	return &config.RawConfig{
-		Address:                     "",
-		UnauthorizedStatusCode:      http.StatusUnauthorized,
-		UnauthorizedPathStatusCodes: map[string]uint{},
+		Address:                "",
+		UnauthorizedStatusCode: http.StatusUnauthorized,
+		RedirectStatusCode:     http.StatusFound,
+		UnauthorizedPaths:      []string{"^/.*$"},
+		RedirectPaths:          []string{},
 	}
 }
 
@@ -70,10 +72,10 @@ func (a *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		}
 		defer akRes.Body.Close()
 
-		if akRes.StatusCode == 200 {
+		if sc := a.config.GetUnauthorizedStatusCode(reqUrl.Path); sc == http.StatusOK || akRes.StatusCode == 200 {
 			a.serveUpstream(rw, req, akRes)
 		} else {
-			a.serveUnauthorized(rw, reqUrl)
+			a.serveUnauthorized(rw, reqUrl, sc)
 		}
 	}
 }
@@ -183,10 +185,8 @@ func (a *Plugin) serveUpstream(rw http.ResponseWriter, req *http.Request, akRes 
 	a.next.ServeHTTP(rcm, req)
 }
 
-func (a *Plugin) serveUnauthorized(rw http.ResponseWriter, reqUrl *url.URL) {
-	statusCode := a.config.GetUnauthorizedStatusCode(reqUrl.Path)
-
-	if statusCode >= 300 && statusCode < 400 {
+func (a *Plugin) serveUnauthorized(rw http.ResponseWriter, reqUrl *url.URL, sc int) {
+	if sc >= 300 && sc < 400 {
 		loc := url.URL{
 			Scheme: reqUrl.Scheme,
 			Host:   reqUrl.Host,
@@ -199,6 +199,6 @@ func (a *Plugin) serveUnauthorized(rw http.ResponseWriter, reqUrl *url.URL) {
 		rw.Header().Set("Location", loc.String())
 	}
 
-	rw.WriteHeader(statusCode)
-	rw.Write([]byte(http.StatusText(statusCode)))
+	rw.WriteHeader(sc)
+	rw.Write([]byte(http.StatusText(sc)))
 }

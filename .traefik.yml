@@ -9,6 +9,6 @@ summary: Traefik plugin to integrate Authentik as a ForwardAuth provider, with e
 testData:
   address: https://authentik.example.com
   unauthorizedStatusCode: 401
-  unauthorizedPathStatusCodes:
-    "/test/users": 403
-    "/test/users/[0-9]+": 404
+  redirectStatusCode: 302
+  unauthorizedPaths: ["^/.*$"]
+  redirectPaths: []

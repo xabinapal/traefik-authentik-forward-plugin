@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"regexp"
 )
 
@@ -17,20 +16,22 @@ type RawConfig struct {
 	// The status code to return when the request is unauthorized.
 	UnauthorizedStatusCode uint `json:"unauthorizedStatusCode,omitempty"`
 
-	// Map of path regexes to customize their unauthorized status codes.
-	UnauthorizedPathStatusCodes map[string]uint `json:"unauthorizedPathStatusCodes,omitempty"`
+	// The status code to return when unauthorized requests must be redirected.
+	RedirectStatusCode uint `json:"redirectStatusCode,omitempty"`
+
+	// List of path regexes that will be treated as unauthorized.
+	UnauthorizedPaths []string `json:"unauthorizedPaths,omitempty"`
+
+	// List of path regexes that will be treated as redirections.
+	RedirectPaths []string `json:"redirectPaths,omitempty"`
 }
 
 type Config struct {
 	RawConfig
-	UnauthorizedStatusCode      int
-	UnauthorizedPathStatusCodes []*PathStatusCodesConfig
-}
-
-type PathStatusCodesConfig struct {
-	PathRegex  *regexp.Regexp
-	PathLength int
-	StatusCode int
+	UnauthorizedStatusCode int
+	RedirectStatusCode     int
+	UnauthorizedPaths      []*regexp.Regexp
+	RedirectPaths          []*regexp.Regexp
 }
 
 func (c *RawConfig) Parse() (*Config, error) {
@@ -45,78 +46,77 @@ func (c *RawConfig) Parse() (*Config, error) {
 		c.UnauthorizedStatusCode = http.StatusUnauthorized
 	}
 
-	pathStatusCodes := make([]*PathStatusCodesConfig, 0, len(c.UnauthorizedPathStatusCodes))
-	for path, statusCode := range c.UnauthorizedPathStatusCodes {
-		if statusCode == 0 {
-			return nil, errors.Join(
-				ErrConfigParse,
-				fmt.Errorf("pathStatusCodes[%s] is not valid", path),
-			)
-		}
+	if c.RedirectStatusCode == 0 {
+		c.RedirectStatusCode = http.StatusFound
+	}
 
-		re, err := regexp.Compile("^" + path)
+	unauthorizedPaths := make([]*regexp.Regexp, 0, len(c.UnauthorizedPaths))
+	for _, path := range c.UnauthorizedPaths {
+		re, err := regexp.Compile(path)
 		if err != nil {
 			return nil, errors.Join(
 				ErrConfigParse,
-				fmt.Errorf("pathStatusCodes[%s] is not valid: %w", path, err),
+				fmt.Errorf("unauthorizedPaths[%s] is not valid: %w", path, err),
 			)
 		}
 
-		pathStatusCodes = append(pathStatusCodes, &PathStatusCodesConfig{
-			PathRegex:  re,
-			PathLength: len(path),
-			StatusCode: int(statusCode),
-		})
+		unauthorizedPaths = append(unauthorizedPaths, re)
+	}
+
+	redirectPaths := make([]*regexp.Regexp, 0, len(c.RedirectPaths))
+	for _, path := range c.RedirectPaths {
+		re, err := regexp.Compile(path)
+		if err != nil {
+			return nil, errors.Join(
+				ErrConfigParse,
+				fmt.Errorf("redirectPaths[%s] is not valid: %w", path, err),
+			)
+		}
+
+		redirectPaths = append(redirectPaths, re)
 	}
 
 	pc := &Config{
-		RawConfig:                   *c,
-		UnauthorizedStatusCode:      int(c.UnauthorizedStatusCode),
-		UnauthorizedPathStatusCodes: pathStatusCodes,
+		RawConfig:              *c,
+		UnauthorizedStatusCode: int(c.UnauthorizedStatusCode),
+		RedirectStatusCode:     int(c.RedirectStatusCode),
+		UnauthorizedPaths:      unauthorizedPaths,
+		RedirectPaths:          redirectPaths,
 	}
 
 	return pc, nil
 }
 
 func (c *Config) GetUnauthorizedStatusCode(path string) int {
-	var match *PathStatusCodesConfig
+	var longestMatch *regexp.Regexp
+	var longestMatchLength int
+	var longestMatchStatusCode int
 
-	for _, psc := range c.UnauthorizedPathStatusCodes {
-		if psc.PathRegex.MatchString(path) {
-			if match == nil || psc.PathLength > match.PathLength {
-				match = psc
+	for _, re := range c.UnauthorizedPaths {
+		if re.MatchString(path) {
+			l := len(re.String())
+			if l > longestMatchLength {
+				longestMatch = re
+				longestMatchLength = l
+				longestMatchStatusCode = c.UnauthorizedStatusCode
 			}
 		}
 	}
 
-	if match != nil {
-		return match.StatusCode
+	for _, re := range c.RedirectPaths {
+		if re.MatchString(path) {
+			l := len(re.String())
+			if l > longestMatchLength {
+				longestMatch = re
+				longestMatchLength = l
+				longestMatchStatusCode = c.RedirectStatusCode
+			}
+		}
 	}
 
-	return c.UnauthorizedStatusCode
-}
-
-func ValidatePrefix(prefix string) error {
-	if prefix == "" {
-		return nil
+	if longestMatch != nil {
+		return longestMatchStatusCode
 	}
 
-	u, err := url.Parse(prefix)
-	if err != nil {
-		return err
-	}
-
-	isValid := u.Scheme == "" &&
-		u.Host == "" &&
-		u.User == nil &&
-		u.RawQuery == "" &&
-		u.Fragment == "" &&
-		u.Path != "" &&
-		prefix == u.Path
-
-	if !isValid {
-		return fmt.Errorf("must be a valid url path")
-	}
-
-	return nil
+	return http.StatusOK
 }

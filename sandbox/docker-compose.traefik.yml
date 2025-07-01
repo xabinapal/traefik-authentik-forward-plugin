@@ -35,4 +35,6 @@ services:
       - traefik.http.middlewares.whoami_stripprefix.stripPrefix.prefixes=/test
       - traefik.http.middlewares.whoami_authentikforward.plugin.authentikForwardPlugin.address=http://akserver:9000
       - traefik.http.middlewares.whoami_authentikforward.plugin.authentikForwardPlugin.unauthorizedStatusCode=401
-      - traefik.http.middlewares.whoami_authentikforward.plugin.authentikForwardPlugin.unauthorizedPathStatusCodes./login=302
+      - traefik.http.middlewares.whoami_authentikforward.plugin.authentikForwardPlugin.redirectStatusCode=302
+      - traefik.http.middlewares.whoami_authentikforward.plugin.authentikForwardPlugin.unauthorizedPaths=^/.*$
+      - traefik.http.middlewares.whoami_authentikforward.plugin.authentikForwardPlugin.redirectPaths=^/login/?$
