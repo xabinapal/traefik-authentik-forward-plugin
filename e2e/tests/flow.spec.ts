@@ -61,8 +61,10 @@ test.describe("authentication", () => {
   test.describe("logout", () => {
     test.beforeAll(async ({ sharedContextPage: page }) => {
       // go to logout page
-      await page.goto("http://whoami.localhost/outpost.goauthentik.io/sign_out");
-  
+      await page.goto(
+        "http://whoami.localhost/outpost.goauthentik.io/sign_out",
+      );
+
       // wait for redirect
       await page.waitForURL("http://authentik.localhost:9000/**");
     });
@@ -71,7 +73,9 @@ test.describe("authentication", () => {
       sharedContextPage: page,
     }) => {
       // go to main page
-      const response = (await page.goto("http://whoami.localhost/allow")) as Response;
+      const response = (await page.goto(
+        "http://whoami.localhost/allow",
+      )) as Response;
 
       // check for upstream
       expect(response.status()).toBe(StatusCodes.OK);
@@ -81,7 +85,9 @@ test.describe("authentication", () => {
       sharedContextPage: page,
     }) => {
       // go to main page
-      const response = (await page.goto("http://whoami.localhost/deny")) as Response;
+      const response = (await page.goto(
+        "http://whoami.localhost/deny",
+      )) as Response;
 
       // check for upstream
       expect(response.status()).toBe(StatusCodes.UNAUTHORIZED);

@@ -11,7 +11,6 @@ import (
 )
 
 func TestServeHTTP_UpstreamPaths(t *testing.T) {
-
 	t.Run("unauthenticated request with allowed path", func(t *testing.T) {
 		akCalled := true
 		akServer := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -26,9 +25,9 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 
 			// check that the original uri header is set
 			expectedURI := "http://example.com/users"
-			actualURI := req.Header.Get("X-Original-URI")
+			actualURI := req.Header.Get("X-Original-Uri")
 			if actualURI != expectedURI {
-				t.Errorf("expected X-Original-URI header to be %s, got %s", expectedURI, actualURI)
+				t.Errorf("expected X-Original-Uri header to be %s, got %s", expectedURI, actualURI)
 			}
 
 			rw.WriteHeader(http.StatusUnauthorized)
@@ -50,7 +49,7 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 		}
 		handler, _ := plugin.New(context.Background(), next, config, "test")
 
-		req := httptest.NewRequest("GET", "http://example.com/users", nil)
+		req := httptest.NewRequest(http.MethodGet, "http://example.com/users", nil)
 
 		rw := httptest.NewRecorder()
 		handler.ServeHTTP(rw, req)
@@ -80,9 +79,9 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 
 			// check that the original uri header is set
 			expectedURI := "http://example.com/users"
-			actualURI := req.Header.Get("X-Original-URI")
+			actualURI := req.Header.Get("X-Original-Uri")
 			if actualURI != expectedURI {
-				t.Errorf("expected X-Original-URI header to be %s, got %s", expectedURI, actualURI)
+				t.Errorf("expected X-Original-Uri header to be %s, got %s", expectedURI, actualURI)
 			}
 
 			rw.WriteHeader(http.StatusUnauthorized)
@@ -103,7 +102,7 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 		}
 		handler, _ := plugin.New(context.Background(), next, config, "test")
 
-		req := httptest.NewRequest("GET", "http://example.com/users", nil)
+		req := httptest.NewRequest(http.MethodGet, "http://example.com/users", nil)
 
 		rw := httptest.NewRecorder()
 		handler.ServeHTTP(rw, req)
@@ -139,9 +138,9 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 
 			// check that the original uri header is set
 			expectedURI := "http://example.com/users"
-			actualURI := req.Header.Get("X-Original-URI")
+			actualURI := req.Header.Get("X-Original-Uri")
 			if actualURI != expectedURI {
-				t.Errorf("expected X-Original-URI header to be %s, got %s", expectedURI, actualURI)
+				t.Errorf("expected X-Original-Uri header to be %s, got %s", expectedURI, actualURI)
 			}
 
 			rw.WriteHeader(http.StatusUnauthorized)
@@ -162,7 +161,7 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 		}
 		handler, _ := plugin.New(context.Background(), next, config, "test")
 
-		req := httptest.NewRequest("GET", "http://example.com/users", nil)
+		req := httptest.NewRequest(http.MethodGet, "http://example.com/users", nil)
 
 		rw := httptest.NewRecorder()
 		handler.ServeHTTP(rw, req)
@@ -201,9 +200,9 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 
 			// check that the original uri header is set
 			expectedURI := "http://example.com/users"
-			actualURI := req.Header.Get("X-Original-URI")
+			actualURI := req.Header.Get("X-Original-Uri")
 			if actualURI != expectedURI {
-				t.Errorf("expected X-Original-URI header to be %s, got %s", expectedURI, actualURI)
+				t.Errorf("expected X-Original-Uri header to be %s, got %s", expectedURI, actualURI)
 			}
 
 			// check that the authentication cookie is set
@@ -242,7 +241,7 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 		config := &config.RawConfig{Address: akServer.URL}
 		handler, _ := plugin.New(context.Background(), next, config, "test")
 
-		req := httptest.NewRequest("GET", "http://example.com/users", nil)
+		req := httptest.NewRequest(http.MethodGet, "http://example.com/users", nil)
 		req.AddCookie(&http.Cookie{Name: "authentik_proxy_user", Value: "testuser"})
 
 		rw := httptest.NewRecorder()
@@ -300,7 +299,7 @@ func TestServeHTTP_AuthentikPaths(t *testing.T) {
 		config := &config.RawConfig{Address: akServer.URL}
 		handler, _ := plugin.New(context.Background(), nil, config, "test")
 
-		req := httptest.NewRequest("GET", "http://example.com/outpost.goauthentik.io/start", nil)
+		req := httptest.NewRequest(http.MethodGet, "http://example.com/outpost.goauthentik.io/start", nil)
 
 		rw := httptest.NewRecorder()
 
@@ -336,7 +335,7 @@ func TestServeHTTP_AuthentikPaths(t *testing.T) {
 		config := &config.RawConfig{Address: akServer.URL}
 		handler, _ := plugin.New(context.Background(), nil, config, "test")
 
-		req := httptest.NewRequest("GET", "http://example.com/outpost.goauthentik.io/auth/nginx", nil)
+		req := httptest.NewRequest(http.MethodGet, "http://example.com/outpost.goauthentik.io/auth/nginx", nil)
 
 		rw := httptest.NewRecorder()
 		handler.ServeHTTP(rw, req)

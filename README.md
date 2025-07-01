@@ -57,7 +57,7 @@ You can even define different auth behaviors for APIs and websites with just a f
 
 Authentik provides multiple outpost endpoints. This plugin uses the `/outpost.goauthentik.io/auth/nginx` one because it gives more control. Unlike the Traefik endpoint, which always returns `302` redirects, this one returns `401` responses, which lets you decide what to do: deny the request, redirect to login or even skip auth entirely for some paths. This puts the decision of how to handle unauthorized requests closer to your app logic.
 
-It also avoids problems caused by proxies, load balancers, or CDNs that often mess with `X-Forwarded-*` HTTP headers required by the Traefik endpoint. Instead, the nginx endpoint uses an additional `X-Original-URI` header, which stays intact across hops. This makes your auth setup more reliable and predictable.
+It also avoids problems caused by proxies, load balancers, or CDNs that often mess with `X-Forwarded-*` HTTP headers required by the Traefik endpoint. Instead, the nginx endpoint uses an additional `X-Original-Uri` header, which stays intact across hops. This makes your auth setup more reliable and predictable.
 
 > **⚠️ Note:** Authentik still relies on the `X-Forwarded-Host` header, so make sure it isn't modified by proxies in the request chain. That's still much simpler than managing all the headers required by other approaches.
 

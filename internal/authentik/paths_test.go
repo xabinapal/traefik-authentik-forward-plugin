@@ -1,7 +1,6 @@
 package authentik_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/authentik"
@@ -14,7 +13,7 @@ func TestIsPathAllowedDownstream_Allowed(t *testing.T) {
 		"/outpost.goauthentik.io/callback",
 	}
 	for _, tt := range tests {
-		t.Run(fmt.Sprintf("allowed path %s", tt), func(t *testing.T) {
+		t.Run("allowed path "+tt, func(t *testing.T) {
 			allowed := authentik.IsPathAllowedDownstream(tt)
 			if !allowed {
 				t.Errorf("expected path to be allowed")
@@ -32,7 +31,7 @@ func TestIsPathAllowedDownstream_Restricted(t *testing.T) {
 		"/outpost.goauthentik.io/auth/envoy",
 	}
 	for _, tt := range tests {
-		t.Run(fmt.Sprintf("restricted path %s", tt), func(t *testing.T) {
+		t.Run("restricted path "+tt, func(t *testing.T) {
 			allowed := authentik.IsPathAllowedDownstream(tt)
 			if allowed {
 				t.Errorf("expected path to be restricted")

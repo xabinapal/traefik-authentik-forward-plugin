@@ -70,4 +70,4 @@ body:
         ```
         Paste relevant logs here...
         ```
-      render: text 
+      render: text

@@ -43,53 +43,61 @@ func New(ctx context.Context, next http.Handler, config *config.RawConfig, name 
 }
 
 func (a *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	reqUrl, err := httputil.GetRequestURI(req)
+	reqURL, err := httputil.GetRequestURI(req)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if strings.HasPrefix(reqUrl.Path, authentik.BasePath) {
-		if !authentik.IsPathAllowedDownstream(reqUrl.Path) {
-			rw.WriteHeader(http.StatusNotFound)
-			_, _ = rw.Write([]byte(http.StatusText(http.StatusNotFound)))
-			return
-		}
-
-		akRes, err := a.requestAuthentik(req, reqUrl, reqUrl.Path)
-		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		defer func() { _ = akRes.Body.Close() }()
-
-		a.serveAuthentik(rw, reqUrl, akRes)
+	if strings.HasPrefix(reqURL.Path, authentik.BasePath) {
+		a.handleAuthentik(rw, req, reqURL)
 	} else {
-		akRes, err := a.requestAuthentik(req, reqUrl, authentik.AuthPath)
-		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		defer func() { _ = akRes.Body.Close() }()
-
-		if sc := a.config.GetUnauthorizedStatusCode(reqUrl.Path); sc == http.StatusOK || akRes.StatusCode == 200 {
-			a.serveUpstream(rw, req, akRes)
-		} else {
-			a.serveUnauthorized(rw, reqUrl, sc)
-		}
+		a.handleUpstream(rw, req, reqURL)
 	}
 }
 
-func (a *Plugin) requestAuthentik(req *http.Request, reqUrl *url.URL, akPath string) (*http.Response, error) {
+func (a *Plugin) handleAuthentik(rw http.ResponseWriter, req *http.Request, reqURL *url.URL) {
+	if !authentik.IsPathAllowedDownstream(reqURL.Path) {
+		rw.WriteHeader(http.StatusNotFound)
+		_, _ = rw.Write([]byte(http.StatusText(http.StatusNotFound)))
+		return
+	}
+
+	akRes, err := a.requestAuthentik(req, reqURL, reqURL.Path)
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer func() { _ = akRes.Body.Close() }()
+
+	a.serveAuthentik(rw, reqURL, akRes)
+}
+
+func (a *Plugin) handleUpstream(rw http.ResponseWriter, req *http.Request, reqURL *url.URL) {
+	akRes, err := a.requestAuthentik(req, reqURL, authentik.AuthPath)
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer func() { _ = akRes.Body.Close() }()
+
+	if sc := a.config.GetUnauthorizedStatusCode(reqURL.Path); sc == http.StatusOK || akRes.StatusCode == http.StatusOK {
+		a.serveUpstream(rw, req, akRes)
+	} else {
+		a.serveUnauthorized(rw, reqURL, sc)
+	}
+}
+
+func (a *Plugin) requestAuthentik(req *http.Request, reqURL *url.URL, akPath string) (*http.Response, error) {
 	akReq, err := http.NewRequest(req.Method, a.config.Address+akPath, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	akReq.URL.RawQuery = reqUrl.RawQuery
+	akReq.URL.RawQuery = reqURL.RawQuery
 
-	akReq.Header.Set("X-Forwarded-Host", reqUrl.Host)
-	akReq.Header.Set("X-Original-URI", reqUrl.String())
+	akReq.Header.Set("X-Forwarded-Host", reqURL.Host)
+	akReq.Header.Set("X-Original-Uri", reqURL.String())
 
 	for _, c := range authentik.GetCookies(req) {
 		akReq.AddCookie(c)
@@ -108,7 +116,7 @@ func (a *Plugin) requestAuthentik(req *http.Request, reqUrl *url.URL, akPath str
 	return akRes, nil
 }
 
-func (a *Plugin) serveAuthentik(rw http.ResponseWriter, reqUrl *url.URL, akRes *http.Response) {
+func (a *Plugin) serveAuthentik(rw http.ResponseWriter, reqURL *url.URL, akRes *http.Response) {
 	for k, vs := range akRes.Header {
 		rw.Header().Del(k)
 		for _, v := range vs {
@@ -121,16 +129,16 @@ func (a *Plugin) serveAuthentik(rw http.ResponseWriter, reqUrl *url.URL, akRes *
 		if strings.HasPrefix(location, a.config.Address+authentik.BasePath) {
 			location = strings.TrimPrefix(location, a.config.Address)
 
-			locUrl, err := url.Parse(location)
+			locURL, err := url.Parse(location)
 			if err != nil {
 				http.Error(rw, err.Error(), http.StatusInternalServerError)
 				return
 			}
 
-			locUrl.Scheme = reqUrl.Scheme
-			locUrl.Host = reqUrl.Host
+			locURL.Scheme = reqURL.Scheme
+			locURL.Host = reqURL.Host
 
-			location = locUrl.String()
+			location = locURL.String()
 		}
 
 		rw.Header().Set("Location", location)
@@ -185,14 +193,14 @@ func (a *Plugin) serveUpstream(rw http.ResponseWriter, req *http.Request, akRes 
 	a.next.ServeHTTP(rcm, req)
 }
 
-func (a *Plugin) serveUnauthorized(rw http.ResponseWriter, reqUrl *url.URL, sc int) {
+func (a *Plugin) serveUnauthorized(rw http.ResponseWriter, reqURL *url.URL, sc int) {
 	if sc >= 300 && sc < 400 {
 		loc := url.URL{
-			Scheme: reqUrl.Scheme,
-			Host:   reqUrl.Host,
+			Scheme: reqURL.Scheme,
+			Host:   reqURL.Host,
 			Path:   authentik.BasePath + "/start",
 			RawQuery: url.Values{
-				"rd": {reqUrl.String()},
+				"rd": {reqURL.String()},
 			}.Encode(),
 		}
 

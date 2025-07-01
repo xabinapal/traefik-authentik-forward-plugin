@@ -9,9 +9,10 @@ type Cookier interface {
 	Cookies() []*http.Cookie
 }
 
+//nolint:mnd
 func parseCookieName(c string) string {
-	parts := strings.Split(c, "=")
-	if len(parts) < 2 {
+	parts := strings.SplitN(c, "=", 2)
+	if len(parts) != 2 {
 		return ""
 	}
 

@@ -1,63 +1,61 @@
-version: 2
+---
+version: "2"
 
 run:
   timeout: 3m
-  skip-files: []
-  skip-dirs: []
-
-linters-settings:
-  govet:
-    enable-all: true
-    disable:
-      - fieldalignment
-  gocyclo:
-    min-complexity: 12
-  goconst:
-    min-len: 5
-    min-occurrences: 4
-  misspell:
-    locale: US
-  funlen:
-    lines: -1
-    statements: 50
-  godox:
-    keywords:
-      - FIXME
 
 linters:
-  enable-all: true
+  default: all
   disable:
-    # SQL-related linters (not relevant)
-    - sqlclosecheck
-    - rowserrcheck
-    # Duplicate functionality
+    - sqlclosecheck # not relevant (SQL)
+    - rowserrcheck # not relevant (SQL)
+    - depguard # not relevant (dependency management)
     - cyclop # duplicate of gocyclo
-    # Too strict/noisy for this project
-    - bodyclose # Too many false positives
+    - bodyclose # Too many false positives: https://github.com/timakin/bodyclose/issues/30
     - dupl
-    - testpackage
-    - tparallel
-    - paralleltest
-    - nlreturn
-    - wsl
+    - err113
     - exhaustive
     - exhaustruct
-    - wrapcheck
-    - noctx
-    - lll
-    - mnd # was gomnd in v1
     - forbidigo
+    - lll
+    - nlreturn
+    - noctx
+    - paralleltest
+    - revive
+    - testpackage
+    - tparallel
     - varnamelen
-    - err113 # was goerr113 in v1
+    - wrapcheck
+    - wsl
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+    gocyclo:
+      min-complexity: 12
+    goconst:
+      min-len: 5
+      min-occurrences: 4
+    misspell:
+      locale: US
+    funlen:
+      lines: -1
+      statements: 50
+    godox:
+      keywords:
+        - FIXME
+  exclusions:
+    rules:
+      - path: (.+)_test.go
+        linters:
+          - cyclop
+          - funlen
+          - gocognit
+          - goconst
+          - gocyclo
+          - godot
+          - maintidx
 
 issues:
-  exclude-use-default: false
-  max-per-linter: 0
   max-same-issues: 0
-  exclude: []
-  exclude-rules:
-    - path: (.+)_test.go
-      linters:
-        - goconst
-        - funlen
-        - godot

@@ -1,6 +1,7 @@
 package httputil_test
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -11,7 +12,7 @@ func TestGetRequestURI(t *testing.T) {
 	t.Run("request with invalid url", func(t *testing.T) {
 		// if an url is invalid and url.Parse throws an error,
 		// the error should be returned
-		req := httptest.NewRequest("GET", "http://localhost", nil)
+		req := httptest.NewRequest(http.MethodGet, "http://localhost", nil)
 		req.RequestURI = "://localhost"
 
 		uri, err := httputil.GetRequestURI(req)
@@ -26,7 +27,7 @@ func TestGetRequestURI(t *testing.T) {
 	})
 
 	t.Run("request with no scheme", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/path?query=value", nil)
+		req := httptest.NewRequest(http.MethodGet, "/path?query=value", nil)
 
 		uri, err := httputil.GetRequestURI(req)
 		if err != nil {
@@ -41,7 +42,7 @@ func TestGetRequestURI(t *testing.T) {
 	})
 
 	t.Run("request with http scheme", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "http://example.com/path?query=value", nil)
+		req := httptest.NewRequest(http.MethodGet, "http://example.com/path?query=value", nil)
 
 		uri, err := httputil.GetRequestURI(req)
 		if err != nil {
@@ -56,7 +57,7 @@ func TestGetRequestURI(t *testing.T) {
 	})
 
 	t.Run("request with https scheme", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "https://example.com/path?query=value", nil)
+		req := httptest.NewRequest(http.MethodGet, "https://example.com/path?query=value", nil)
 
 		uri, err := httputil.GetRequestURI(req)
 		if err != nil {
@@ -71,7 +72,7 @@ func TestGetRequestURI(t *testing.T) {
 	})
 
 	t.Run("request parts", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "http://example.com/path?query=value", nil)
+		req := httptest.NewRequest(http.MethodGet, "http://example.com/path?query=value", nil)
 
 		uri, err := httputil.GetRequestURI(req)
 		if err != nil {

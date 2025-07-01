@@ -11,7 +11,7 @@ import (
 func TestGetCookies(t *testing.T) {
 	t.Run("cookie filtering", func(t *testing.T) {
 		// create a mock request
-		req, err := http.NewRequest("GET", "http://authentik.example.com", nil)
+		req, err := http.NewRequest(http.MethodGet, "http://authentik.example.com", nil)
 		if err != nil {
 			t.Fatalf("failed to create request: %v", err)
 		}

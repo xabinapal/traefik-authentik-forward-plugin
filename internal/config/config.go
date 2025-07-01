@@ -14,10 +14,10 @@ type RawConfig struct {
 	Address string `json:"address"`
 
 	// The status code to return when the request is unauthorized.
-	UnauthorizedStatusCode uint `json:"unauthorizedStatusCode,omitempty"`
+	UnauthorizedStatusCode uint16 `json:"unauthorizedStatusCode,omitempty"`
 
 	// The status code to return when unauthorized requests must be redirected.
-	RedirectStatusCode uint `json:"redirectStatusCode,omitempty"`
+	RedirectStatusCode uint16 `json:"redirectStatusCode,omitempty"`
 
 	// List of path regexes that will be treated as unauthorized.
 	UnauthorizedPaths []string `json:"unauthorizedPaths,omitempty"`
@@ -36,10 +36,7 @@ type Config struct {
 
 func (c *RawConfig) Parse() (*Config, error) {
 	if c.Address == "" {
-		return nil, errors.Join(
-			ErrConfigParse,
-			errors.New("address is required"),
-		)
+		return nil, fmt.Errorf("%w: address is required", ErrConfigParse)
 	}
 
 	if c.UnauthorizedStatusCode == 0 {
@@ -54,10 +51,7 @@ func (c *RawConfig) Parse() (*Config, error) {
 	for _, path := range c.UnauthorizedPaths {
 		re, err := regexp.Compile(path)
 		if err != nil {
-			return nil, errors.Join(
-				ErrConfigParse,
-				fmt.Errorf("unauthorizedPaths[%s] is not valid: %w", path, err),
-			)
+			return nil, fmt.Errorf("%w: unauthorizedPaths[%s] is not valid: %w", ErrConfigParse, path, err)
 		}
 
 		unauthorizedPaths = append(unauthorizedPaths, re)
@@ -67,10 +61,7 @@ func (c *RawConfig) Parse() (*Config, error) {
 	for _, path := range c.RedirectPaths {
 		re, err := regexp.Compile(path)
 		if err != nil {
-			return nil, errors.Join(
-				ErrConfigParse,
-				fmt.Errorf("redirectPaths[%s] is not valid: %w", path, err),
-			)
+			return nil, fmt.Errorf("%w: redirectPaths[%s] is not valid: %w", ErrConfigParse, path, err)
 		}
 
 		redirectPaths = append(redirectPaths, re)
