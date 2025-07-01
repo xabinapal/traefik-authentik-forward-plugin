@@ -1,0 +1,10 @@
+---
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Ask a Question
+    url: https://github.com/xabinapal/traefik-authentik-forward-plugin/discussions
+    about: Ask questions or discuss ideas
+
+  - name: 🔒 Security Issue
+    url: https://github.com/xabinapal/traefik-authentik-forward-plugin/security/advisories/new
+    about: Report security vulnerabilities privately

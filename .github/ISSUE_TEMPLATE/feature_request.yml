@@ -1,0 +1,25 @@
+---
+name: 💡 Feature Request
+description: Suggest a new feature or enhancement
+title: "[FEAT] "
+labels: ["enhancement"]
+assignees: []
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What would you like to see?
+      description: Describe the feature you'd like to add
+      placeholder: A clear description of what you want to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Why do you need this?
+      description: Describe your use case
+      placeholder: Explain the problem this feature would solve
+    validations:
+      required: true
