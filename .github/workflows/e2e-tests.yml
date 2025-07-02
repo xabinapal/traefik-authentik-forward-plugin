@@ -1,0 +1,65 @@
+---
+name: e2e tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  playwright:
+    name: playwright
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      NODE_VERSION: 22
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}/e2e
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: install docker compose
+        uses: docker/setup-compose-action@v1
+
+      - name: cache docker images
+        uses: seijikohara/docker-compose-cache-action@v1
+        with:
+          compose-files: ${{ github.workspace }}/sandbox/docker-compose.yml
+
+      - name: install node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: install node dependencies
+        uses: chill-viking/npm-ci@latest
+        with:
+          working_directory: ${{ github.workspace }}/e2e
+
+      - name: cache playwright binaries
+        uses: actions/cache@v3
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright
+
+      - name: install chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: run tests
+        run: npx playwright test
+
+      - name: upload test reports
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: ${{ github.workspace }}/e2e/playwright-report/
+          retention-days: 30
