@@ -11,7 +11,13 @@ entries:
   - model: authentik_blueprints.metaapplyblueprint
     attrs:
       identifiers:
-        name: sandbox-proxy
+        name: sandbox-proxy-http
+      required: true
+
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: sandbox-proxy-https
       required: true
 
   - model: authentik_outposts.outpost
@@ -25,5 +31,9 @@ entries:
       providers:
         - !Find [
             authentik_providers_proxy.proxyprovider,
-            [name, whoami-provider],
+            [name, whoami-http-provider],
+          ]
+        - !Find [
+            authentik_providers_proxy.proxyprovider,
+            [name, whoami-https-provider],
           ]

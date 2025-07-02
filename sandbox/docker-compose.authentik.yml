@@ -89,6 +89,7 @@ services:
       start_interval: 5s
     ports:
       - 9000:9000
+      - 9443:9443
     volumes:
       - ./blueprints:/blueprints/custom:ro
     depends_on:

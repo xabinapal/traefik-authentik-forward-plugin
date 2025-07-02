@@ -10,16 +10,26 @@ import (
 
 	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/authentik"
 	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/config"
+	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/httpclient"
 	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/httputil"
 )
 
 func CreateConfig() *config.RawConfig {
 	return &config.RawConfig{
-		Address:                "",
-		UnauthorizedStatusCode: http.StatusUnauthorized,
-		RedirectStatusCode:     http.StatusFound,
-		UnauthorizedPaths:      []string{"^/.*$"},
-		RedirectPaths:          []string{},
+		Address: "",
+		Timeout: config.DefaultTimeout,
+		TLS: &config.RawTLSConfig{
+			CA:                 "",
+			Cert:               "",
+			Key:                "",
+			MinVersion:         config.DefaultTLSMinVersion,
+			MaxVersion:         config.DefaultTLSMaxVersion,
+			InsecureSkipVerify: config.DefaultTLSInsecureSkipVerify,
+		},
+		UnauthorizedStatusCode: config.DefaultUnauthorizedStatusCode,
+		RedirectStatusCode:     config.DefaultRedirectStatusCode,
+		UnauthorizedPaths:      config.DefaultUnauthorizedPaths,
+		RedirectPaths:          config.DefaultRedirectPaths,
 	}
 }
 
@@ -27,6 +37,7 @@ type Plugin struct {
 	next   http.Handler
 	config *config.Config
 	name   string
+	client *http.Client
 }
 
 func New(ctx context.Context, next http.Handler, config *config.RawConfig, name string) (http.Handler, error) {
@@ -35,10 +46,16 @@ func New(ctx context.Context, next http.Handler, config *config.RawConfig, name 
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
+	client, err := httpclient.CreateHTTPClient(pc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create http client: %w", err)
+	}
+
 	return &Plugin{
 		next:   next,
 		config: pc,
 		name:   name,
+		client: client,
 	}, nil
 }
 
@@ -103,12 +120,7 @@ func (a *Plugin) requestAuthentik(req *http.Request, reqURL *url.URL, akPath str
 		akReq.AddCookie(c)
 	}
 
-	client := &http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse // don't follow redirects
-		},
-	}
-	akRes, err := client.Do(akReq)
+	akRes, err := a.client.Do(akReq)
 	if err != nil {
 		return nil, err
 	}

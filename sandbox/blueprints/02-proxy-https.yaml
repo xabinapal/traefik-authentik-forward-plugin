@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://goauthentik.io/blueprints/schema.json
+---
+version: 1
+metadata:
+  name: sandbox-proxy-https
+  labels:
+    blueprints.goauthentik.io/instantiate: "true"
+    blueprints.goauthentik.io/description: Create an HTTPS proxy provider and an application
+context:
+  app_name: whoami-https
+  app_url: https://whoami-secure.localhost
+entries:
+  - model: authentik_providers_proxy.proxyprovider
+    id: whoami-https-provider
+    identifiers:
+      name: whoami-https-provider
+    attrs:
+      mode: forward_single
+      external_host: !Context app_url
+      authorization_flow:
+        !Find [
+          authentik_flows.flow,
+          [slug, default-provider-authorization-implicit-consent],
+        ]
+      authentication_flow:
+        !Find [authentik_flows.flow, [slug, default-authentication-flow]]
+      invalidation_flow:
+        !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      access_token_validity: hours=24
+      intercept_header_auth: false
+
+  - model: authentik_core.application
+    id: whoami-https-application
+    identifiers:
+      slug: whoami-https-application
+    attrs:
+      name: !Context app_name
+      provider: !KeyOf whoami-https-provider
+      meta_launch_url: !Context app_url

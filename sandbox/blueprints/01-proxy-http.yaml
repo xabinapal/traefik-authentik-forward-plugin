@@ -2,18 +2,18 @@
 ---
 version: 1
 metadata:
-  name: sandbox-proxy
+  name: sandbox-proxy-http
   labels:
     blueprints.goauthentik.io/instantiate: "true"
-    blueprints.goauthentik.io/description: Create a proxy provider and an application
+    blueprints.goauthentik.io/description: Create an HTTP proxy provider and an application
 context:
-  app_name: whoami
+  app_name: whoami-http
   app_url: http://whoami.localhost
 entries:
   - model: authentik_providers_proxy.proxyprovider
-    id: whoami-provider
+    id: whoami-http-provider
     identifiers:
-      name: whoami-provider
+      name: whoami-http-provider
     attrs:
       mode: forward_single
       external_host: !Context app_url
@@ -30,10 +30,10 @@ entries:
       intercept_header_auth: false
 
   - model: authentik_core.application
-    id: whoami-application
+    id: whoami-http-application
     identifiers:
-      slug: whoami-application
+      slug: whoami-http-application
     attrs:
       name: !Context app_name
-      provider: !KeyOf whoami-provider
+      provider: !KeyOf whoami-http-provider
       meta_launch_url: !Context app_url

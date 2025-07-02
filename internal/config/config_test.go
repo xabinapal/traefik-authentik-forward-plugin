@@ -3,9 +3,58 @@ package config_test
 import (
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/config"
 )
+
+func TestParse_Timeout(t *testing.T) {
+	t.Run("with valid timeout", func(t *testing.T) {
+		config := config.RawConfig{
+			Address: "https://authentik.example.com",
+			Timeout: "30s",
+		}
+
+		pc, err := config.Parse()
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		expectedTimeout := 30 * time.Second
+		if pc.Timeout != expectedTimeout {
+			t.Errorf("expected timeout %v, got %v", expectedTimeout, pc.Timeout)
+		}
+	})
+
+	t.Run("with empty timeout", func(t *testing.T) {
+		config := config.RawConfig{
+			Address: "https://authentik.example.com",
+			Timeout: "",
+		}
+
+		pc, err := config.Parse()
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		expectedTimeout := time.Duration(0)
+		if pc.Timeout != expectedTimeout {
+			t.Errorf("expected timeout %v, got %v", expectedTimeout, pc.Timeout)
+		}
+	})
+
+	t.Run("with invalid timeout", func(t *testing.T) {
+		config := config.RawConfig{
+			Address: "https://authentik.example.com",
+			Timeout: "invalid",
+		}
+
+		_, err := config.Parse()
+		if err == nil {
+			t.Fatal("expected error for invalid timeout, got none")
+		}
+	})
+}
 
 func TestGetUnauthorizedStatusCode(t *testing.T) {
 	t.Run("with no matching paths", func(t *testing.T) {

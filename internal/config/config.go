@@ -1,17 +1,33 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
+	"time"
 )
 
-var ErrConfigParse = errors.New("invalid config")
+const (
+	DefaultTimeout                = "0s"
+	DefaultUnauthorizedStatusCode = http.StatusUnauthorized
+	DefaultRedirectStatusCode     = http.StatusFound
+)
+
+//nolint:gochecknoglobals
+var (
+	DefaultUnauthorizedPaths = []string{"^/.*$"}
+	DefaultRedirectPaths     = []string{}
+)
 
 type RawConfig struct {
 	// The address of the Authentik server to forward requests to.
 	Address string `json:"address"`
+
+	// Connection timeout duration as a string (e.g., "30s", "1m")
+	Timeout string `json:"timeout,omitempty"`
+
+	// TLS configuration
+	TLS *RawTLSConfig `json:"tls,omitempty"`
 
 	// The status code to return when the request is unauthorized.
 	UnauthorizedStatusCode uint16 `json:"unauthorizedStatusCode,omitempty"`
@@ -28,6 +44,8 @@ type RawConfig struct {
 
 type Config struct {
 	RawConfig
+	Timeout                time.Duration
+	TLS                    *TLSConfig
 	UnauthorizedStatusCode int
 	RedirectStatusCode     int
 	UnauthorizedPaths      []*regexp.Regexp
@@ -35,18 +53,47 @@ type Config struct {
 }
 
 func (c *RawConfig) Parse() (*Config, error) {
+	var err error
+
 	if c.Address == "" {
 		return nil, fmt.Errorf("%w: address is required", ErrConfigParse)
 	}
 
+	// parse timeout
+	var timeout time.Duration
+	if c.Timeout == "" {
+		c.Timeout = DefaultTimeout
+	}
+
+	timeout, err = time.ParseDuration(c.Timeout)
+	if err != nil {
+		return nil, fmt.Errorf("%w: timeout is not valid: %w", ErrConfigParse, err)
+	}
+
+	c.Timeout = timeout.String()
+
+	// parse tls config
+	var tlsConfig *TLSConfig
+	if c.TLS == nil {
+		c.TLS = &RawTLSConfig{}
+	}
+
+	tlsConfig, err = c.TLS.Parse()
+	if err != nil {
+		return nil, fmt.Errorf("%w: tls configuration is not valid: %w", ErrConfigParse, err)
+	}
+
+	// set default unauthorized status code
 	if c.UnauthorizedStatusCode == 0 {
-		c.UnauthorizedStatusCode = http.StatusUnauthorized
+		c.UnauthorizedStatusCode = DefaultUnauthorizedStatusCode
 	}
 
+	// set default redirect status code
 	if c.RedirectStatusCode == 0 {
-		c.RedirectStatusCode = http.StatusFound
+		c.RedirectStatusCode = DefaultRedirectStatusCode
 	}
 
+	// parse unauthorized paths
 	unauthorizedPaths := make([]*regexp.Regexp, 0, len(c.UnauthorizedPaths))
 	for _, path := range c.UnauthorizedPaths {
 		re, err := regexp.Compile(path)
@@ -57,6 +104,7 @@ func (c *RawConfig) Parse() (*Config, error) {
 		unauthorizedPaths = append(unauthorizedPaths, re)
 	}
 
+	// parse redirect paths
 	redirectPaths := make([]*regexp.Regexp, 0, len(c.RedirectPaths))
 	for _, path := range c.RedirectPaths {
 		re, err := regexp.Compile(path)
@@ -67,8 +115,11 @@ func (c *RawConfig) Parse() (*Config, error) {
 		redirectPaths = append(redirectPaths, re)
 	}
 
+	// create config
 	pc := &Config{
 		RawConfig:              *c,
+		Timeout:                timeout,
+		TLS:                    tlsConfig,
 		UnauthorizedStatusCode: int(c.UnauthorizedStatusCode),
 		RedirectStatusCode:     int(c.RedirectStatusCode),
 		UnauthorizedPaths:      unauthorizedPaths,

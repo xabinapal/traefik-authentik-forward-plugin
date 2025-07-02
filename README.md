@@ -87,6 +87,27 @@ experimental:
 - `address`: `string`, **required** \
   Base URL of your Authentik server (e.g., `https://auth.example.com`).
 
+- `timeout`: `string`, optional, default `0s` \
+  Connection timeout duration for requests to Authentik (e.g., `"30s"`, `"1m"`). If not specified or equals to `0`, no timeout is applied.
+
+- `tlsca`: `string`, optional \
+   Path to the CA certificate file for verifying the Authentik server certificate.
+
+- `tls.cert`: `string`, optional \
+  Path to the client certificate file for mutual TLS authentication to the Authentik server.
+
+- `tls.key`: `string`, optional \
+  Path to the client private key file for mutual TLS authentication to the Authentik server.
+
+- `tls.minVersion`: `uint`, optional, default `12` \
+  Minimum TLS version to use (`10` for TLS 1.0, `11` for TLS 1.1, `12` for TLS 1.2, `13` for TLS 1.3).
+
+- `tls.maxVersion`: `uint`, optional, default `13` \
+  Maximum TLS version to use (`10` for TLS 1.0, `11` for TLS 1.1, `12` for TLS 1.2, `13` for TLS 1.3).
+
+- `tls.insecureSkipVerify`: `bool`, optional, default `false` \
+  If set, skip TLS certificate verification, not recommended for production.
+
 - `unauthorizedStatusCode`: `uint`, optional, default `401` \
   HTTP status code to return when denying access for request paths matched by `unauthorizedPaths`.
 
@@ -117,6 +138,14 @@ http:
       plugin:
         authentik-forward:
           address: https://auth.example.com
+          timeout: "30s"
+          tls:
+            ca: "/etc/ssl/certs/ca.pem"
+            cert: "/etc/ssl/certs/client.pem"
+            key: "/etc/ssl/private/client.key"
+            minVersion: 12
+            maxVersion: 13
+            insecureSkipVerify: false
           unauthorizedStatusCode: 401
           redirectStatusCode: 302
           unauthorizedPaths:
@@ -147,6 +176,14 @@ spec:
   plugin:
     authentik-forward:
       address: https://auth.example.com
+      timeout: "30s"
+      tls:
+        ca: "/etc/ssl/certs/ca.pem"
+        cert: "/etc/ssl/certs/client.pem"
+        key: "/etc/ssl/private/client.key"
+        minVersion: 12
+        maxVersion: 13
+        insecureSkipVerify: false
       unauthorizedStatusCode: 401
       redirectStatusCode: 302
       unauthorizedPaths:

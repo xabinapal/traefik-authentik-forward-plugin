@@ -10,12 +10,15 @@ services:
       - --api.insecure=true
       - --api.dashboard=true
       - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.websecure.http.tls=true
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
       - --providers.docker.network=traefik-authentik-forward-plugin-sandbox
       - --experimental.localPlugins.authentikForwardPlugin.modulename=github.com/xabinapal/traefik-authentik-forward-plugin
     ports:
       - "80:80"
+      - "443:443"
       - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -30,11 +33,25 @@ services:
     restart: unless-stopped
     labels:
       - traefik.enable=true
+
+      - traefik.http.routers.whoami.entrypoints=web
       - traefik.http.routers.whoami.rule=Host(`whoami.localhost`)
-      - traefik.http.routers.whoami.middlewares=whoami_stripprefix,whoami_authentikforward
+      - traefik.http.routers.whoami.middlewares=whoami_authentikforward,whoami_stripprefix
       - traefik.http.middlewares.whoami_stripprefix.stripPrefix.prefixes=/test
       - traefik.http.middlewares.whoami_authentikforward.plugin.authentikForwardPlugin.address=http://akserver:9000
       - traefik.http.middlewares.whoami_authentikforward.plugin.authentikForwardPlugin.unauthorizedStatusCode=401
       - traefik.http.middlewares.whoami_authentikforward.plugin.authentikForwardPlugin.redirectStatusCode=302
       - traefik.http.middlewares.whoami_authentikforward.plugin.authentikForwardPlugin.unauthorizedPaths=^/deny/?$
       - traefik.http.middlewares.whoami_authentikforward.plugin.authentikForwardPlugin.redirectPaths=^/login/?$
+
+      - traefik.http.routers.whoami_secure.entrypoints=websecure
+      - traefik.http.routers.whoami_secure.rule=Host(`whoami-secure.localhost`)
+      - traefik.http.routers.whoami_secure.middlewares=whoami_secure_authentikforward,whoami_secure_stripprefix
+      - traefik.http.middlewares.whoami_secure_stripprefix.stripPrefix.prefixes=/test
+      - traefik.http.middlewares.whoami_secure_authentikforward.plugin.authentikForwardPlugin.address=https://akserver:9443
+      - traefik.http.middlewares.whoami_secure_authentikforward.plugin.authentikForwardPlugin.tls.insecureSkipVerify=true
+      - traefik.http.middlewares.whoami_secure_authentikforward.plugin.authentikForwardPlugin.cookiePolicy=strict
+      - traefik.http.middlewares.whoami_secure_authentikforward.plugin.authentikForwardPlugin.unauthorizedStatusCode=401
+      - traefik.http.middlewares.whoami_secure_authentikforward.plugin.authentikForwardPlugin.redirectStatusCode=302
+      - traefik.http.middlewares.whoami_secure_authentikforward.plugin.authentikForwardPlugin.unauthorizedPaths=^/deny/?$
+      - traefik.http.middlewares.whoami_secure_authentikforward.plugin.authentikForwardPlugin.redirectPaths=^/login/?$
