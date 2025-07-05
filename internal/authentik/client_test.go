@@ -9,7 +9,7 @@ import (
 	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/authentik"
 )
 
-func TestCheckRequest(t *testing.T) {
+func TestCheck(t *testing.T) {
 	t.Run("with unauthenticated response", func(t *testing.T) {
 		akCalled := false
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -44,7 +44,7 @@ func TestCheckRequest(t *testing.T) {
 			Cookies: []*http.Cookie{},
 		}
 
-		resMeta, err := client.CheckRequest(reqMeta)
+		resMeta, err := client.Check(reqMeta)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -120,7 +120,7 @@ func TestCheckRequest(t *testing.T) {
 			Cookies: []*http.Cookie{},
 		}
 
-		resMeta, err := client.CheckRequest(reqMeta)
+		resMeta, err := client.Check(reqMeta)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -188,7 +188,7 @@ func TestCheckRequest(t *testing.T) {
 			Cookies: []*http.Cookie{},
 		}
 
-		resMeta, err := client.CheckRequest(meta)
+		resMeta, err := client.Check(meta)
 
 		// check that the authentik server was called
 		if !akCalled {

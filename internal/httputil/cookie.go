@@ -10,11 +10,12 @@ type Cookier interface {
 }
 
 func ParseCookieName(c string) string {
-	eqIndex := strings.IndexByte(c, '=')
-	if eqIndex == -1 {
+	index := strings.IndexByte(c, '=')
+	if index == -1 {
+		// return empty string if cookie format is not name=value
 		return ""
 	}
 
-	name := strings.TrimSpace(c[:eqIndex])
+	name := strings.TrimSpace(c[:index])
 	return name
 }

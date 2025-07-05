@@ -11,15 +11,8 @@ const (
 )
 
 func IsAuthentikPathAllowed(akPath string) bool {
-	if akPath == BasePath {
-		return false
-	}
-
-	if strings.HasPrefix(akPath, BasePath+"/auth") {
-		return false
-	}
-
-	return true
+	// allow all paths except the base path and auth paths
+	return akPath != BasePath && !strings.HasPrefix(akPath, BasePath+"/auth")
 }
 
 func GetAuthentikStartPath(u *url.URL) string {

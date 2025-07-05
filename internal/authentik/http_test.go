@@ -3,12 +3,20 @@ package authentik_test
 import (
 	"net/http"
 	"net/http/httptest"
-	"slices"
 	"testing"
 
 	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/authentik"
 	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/httputil"
 )
+
+func contains(slice []string, value string) bool {
+	for _, v := range slice {
+		if v == value {
+			return true
+		}
+	}
+	return false
+}
 
 func TestGetHeaders(t *testing.T) {
 	t.Run("with response", func(t *testing.T) {
@@ -240,16 +248,16 @@ func TestGetResponseMangler(t *testing.T) {
 		}
 
 		// check that the authentik cookies are removed
-		if ok := slices.Contains(cookieNames, "authentik_proxy_session1"); ok {
+		if ok := contains(cookieNames, "authentik_proxy_session1"); ok {
 			t.Errorf("expected upstream cookie authentik_proxy_session1 to be removed")
 		}
 
-		if ok := slices.Contains(cookieNames, "authentik_proxy_session2"); ok {
+		if ok := contains(cookieNames, "authentik_proxy_session2"); ok {
 			t.Errorf("expected upstream cookie authentik_proxy_session2 to be removed")
 		}
 
 		// check that the other cookies are not removed
-		if ok := slices.Contains(cookieNames, "other"); !ok {
+		if ok := contains(cookieNames, "other"); !ok {
 			t.Errorf("expected other cookie to be preserved")
 		}
 	})
@@ -274,23 +282,23 @@ func TestGetResponseMangler(t *testing.T) {
 		}
 
 		// check that the upstream authentik cookies are removed
-		if ok := slices.Contains(cookieNames, "authentik_proxy_session3"); ok {
+		if ok := contains(cookieNames, "authentik_proxy_session3"); ok {
 			t.Errorf("expected upstream cookie authentik_proxy_session3 to be removed")
 		}
-		if ok := slices.Contains(cookieNames, "authentik_proxy_session4"); ok {
+		if ok := contains(cookieNames, "authentik_proxy_session4"); ok {
 			t.Errorf("expected upstream cookie authentik_proxy_session4 to be removed")
 		}
 
 		// check that the upstream other cookies are preserved
-		if ok := slices.Contains(cookieNames, "other"); !ok {
+		if ok := contains(cookieNames, "other"); !ok {
 			t.Errorf("expected upstream cookie other to be preserved")
 		}
 
 		// check that the authentik cookies are preserved
-		if ok := slices.Contains(cookieNames, "authentik_proxy_session1"); !ok {
+		if ok := contains(cookieNames, "authentik_proxy_session1"); !ok {
 			t.Errorf("expected authentik cookie authentik_proxy_session1 to be preserved")
 		}
-		if ok := slices.Contains(cookieNames, "authentik_proxy_session2"); !ok {
+		if ok := contains(cookieNames, "authentik_proxy_session2"); !ok {
 			t.Errorf("expected authentik cookie authentik_proxy_session2 to be preserved")
 		}
 	})
