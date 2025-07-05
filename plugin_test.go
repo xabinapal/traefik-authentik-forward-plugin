@@ -11,6 +11,46 @@ import (
 )
 
 func TestServeHTTP_UpstreamPaths(t *testing.T) {
+	t.Run("unauthenticated request with skipped path", func(t *testing.T) {
+		akServer := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+			// check that the authentik server was not called
+			t.Fatalf("expected authentik server not to be called")
+		}))
+		defer akServer.Close()
+
+		nextCalled := false
+		next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+			nextCalled = true
+			rw.WriteHeader(http.StatusAccepted)
+		})
+
+		config := &config.Config{
+			Address:                akServer.URL,
+			UnauthorizedStatusCode: http.StatusForbidden,
+			RedirectStatusCode:     http.StatusMovedPermanently,
+			SkippedPaths:           []string{"^/skip"},
+			UnauthorizedPaths:      []string{"^/admin"},
+			RedirectPaths:          []string{"^/login"},
+		}
+		handler, _ := plugin.New(context.Background(), next, config, "test")
+
+		req := httptest.NewRequest(http.MethodGet, "http://example.com/skip", nil)
+
+		rw := httptest.NewRecorder()
+		handler.ServeHTTP(rw, req)
+
+		// check that the next handler was called
+		if !nextCalled {
+			t.Fatalf("expected next handler to be called")
+		}
+
+		// check that the response status code comes from the upstream
+		expectedCode := http.StatusAccepted
+		if rw.Code != expectedCode {
+			t.Errorf("expected status %d, got %d", expectedCode, rw.Code)
+		}
+	})
+
 	t.Run("unauthenticated request with allowed path", func(t *testing.T) {
 		akCalled := true
 		akServer := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -44,6 +84,7 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 			Address:                akServer.URL,
 			UnauthorizedStatusCode: http.StatusForbidden,
 			RedirectStatusCode:     http.StatusMovedPermanently,
+			SkippedPaths:           []string{"^/skip"},
 			UnauthorizedPaths:      []string{"^/admin"},
 			RedirectPaths:          []string{"^/login"},
 		}
@@ -62,6 +103,12 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 		// check that the next handler was called
 		if !nextCalled {
 			t.Fatalf("expected next handler to be called")
+		}
+
+		// check that the response status code comes from the upstream
+		expectedCode := http.StatusAccepted
+		if rw.Code != expectedCode {
+			t.Errorf("expected status %d, got %d", expectedCode, rw.Code)
 		}
 	})
 

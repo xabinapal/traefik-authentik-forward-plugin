@@ -76,29 +76,42 @@ func parseAuthentikConfig(c *Config) (*authentik.Config, error) {
 
 	cfg.RedirectStatusCode = int(c.RedirectStatusCode)
 
-	// parse unauthorized paths
-	cfg.UnauthorizedPaths = make([]*regexp.Regexp, 0, len(c.UnauthorizedPaths))
-	for idx, path := range c.UnauthorizedPaths {
-		re, err := regexp.Compile(path)
-		if err != nil {
-			return nil, fmt.Errorf("unauthorizedPaths[%d] is not valid: %w", idx, err)
-		}
+	// parse skipped paths
+	if skippedPaths, err := parsePathRegexes("skippedPaths", c.SkippedPaths); err != nil {
+		return nil, err
+	} else {
+		cfg.SkippedPaths = skippedPaths
+	}
 
-		cfg.UnauthorizedPaths = append(cfg.UnauthorizedPaths, re)
+	// parse unauthorized paths
+	if unauthorizedPaths, err := parsePathRegexes("unauthorizedPaths", c.UnauthorizedPaths); err != nil {
+		return nil, err
+	} else {
+		cfg.UnauthorizedPaths = unauthorizedPaths
 	}
 
 	// parse redirect paths
-	cfg.RedirectPaths = make([]*regexp.Regexp, 0, len(c.RedirectPaths))
-	for idx, path := range c.RedirectPaths {
-		re, err := regexp.Compile(path)
-		if err != nil {
-			return nil, fmt.Errorf("redirectPaths[%d] is not valid: %w", idx, err)
-		}
-
-		cfg.RedirectPaths = append(cfg.RedirectPaths, re)
+	if redirectPaths, err := parsePathRegexes("redirectPaths", c.RedirectPaths); err != nil {
+		return nil, err
+	} else {
+		cfg.RedirectPaths = redirectPaths
 	}
 
 	return cfg, nil
+}
+
+func parsePathRegexes(name string, paths []string) ([]*regexp.Regexp, error) {
+	pathRegexes := make([]*regexp.Regexp, 0, len(paths))
+	for idx, path := range paths {
+		re, err := regexp.Compile(path)
+		if err != nil {
+			return nil, fmt.Errorf("%s[%d] is not valid: %w", name, idx, err)
+		}
+
+		pathRegexes = append(pathRegexes, re)
+	}
+
+	return pathRegexes, nil
 }
 
 func parseHTTPClientConfig(c *Config) (*httpclient.Config, error) {

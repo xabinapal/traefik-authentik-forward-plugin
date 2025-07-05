@@ -15,6 +15,9 @@ type Config struct {
 	// The status code to return when unauthorized requests must be redirected.
 	RedirectStatusCode uint16 `json:"redirectStatusCode,omitempty"`
 
+	// List of path regexes that wont be checked for authentication.
+	SkippedPaths []string `json:"skippedPaths,omitempty"`
+
 	// List of path regexes that will be treated as unauthorized.
 	UnauthorizedPaths []string `json:"unauthorizedPaths,omitempty"`
 

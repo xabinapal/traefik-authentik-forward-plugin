@@ -64,35 +64,33 @@ func New(ctx context.Context, next http.Handler, config *config.Config, name str
 }
 
 func (p *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	reqURL, err := httputil.GetRequestURI(req)
+	url, err := httputil.GetRequestURI(req)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	meta := &authentik.RequestMeta{
-		URL:     reqURL,
+		URL:     url,
 		Cookies: authentik.GetCookies(req),
 	}
 
 	authentik.RequestMangle(req)
 
-	if strings.HasPrefix(reqURL.Path, authentik.BasePath) {
-		if req.Method == http.MethodGet {
-			p.handleAuthentik(meta, rw)
-		} else {
-			rw.WriteHeader(http.StatusMethodNotAllowed)
-			_, _ = rw.Write([]byte(http.StatusText(http.StatusMethodNotAllowed)))
-			return
-		}
-	} else if state, err := p.client.CheckRequest(meta); err == nil {
-		p.handleUpstream(state, req, rw)
+	if strings.HasPrefix(url.Path, authentik.BasePath) {
+		p.handleAuthentik(meta, req, rw)
 	} else {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		p.handleUpstream(meta, req, rw)
 	}
 }
 
-func (p *Plugin) handleAuthentik(meta *authentik.RequestMeta, rw http.ResponseWriter) {
+func (p *Plugin) handleAuthentik(meta *authentik.RequestMeta, req *http.Request, rw http.ResponseWriter) {
+	if req.Method != http.MethodGet {
+		rw.WriteHeader(http.StatusMethodNotAllowed)
+		_, _ = rw.Write([]byte(http.StatusText(http.StatusMethodNotAllowed)))
+		return
+	}
+
 	if !authentik.IsAuthentikPathAllowed(meta.URL.Path) {
 		rw.WriteHeader(http.StatusNotFound)
 		_, _ = rw.Write([]byte(http.StatusText(http.StatusNotFound)))
@@ -128,14 +126,48 @@ func (p *Plugin) handleAuthentik(meta *authentik.RequestMeta, rw http.ResponseWr
 	}
 }
 
-func (p *Plugin) handleUpstream(meta *authentik.ResponseMeta, req *http.Request, rw http.ResponseWriter) {
+func (p *Plugin) handleUpstream(meta *authentik.RequestMeta, req *http.Request, rw http.ResponseWriter) {
+	if p.config.Authentik.IsSkippedPath(meta.URL.Path) {
+		p.serveUpstream(nil, req, rw)
+		return
+	}
+
 	sc := p.config.Authentik.GetUnauthorizedStatusCode(meta.URL.Path)
 
-	if !meta.IsAuthenticated && sc != http.StatusOK {
-		p.serveUnauthorized(meta, rw, sc)
-	} else {
-		p.serveUpstream(meta, req, rw)
+	resMeta, err := p.client.CheckRequest(meta)
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		return
 	}
+
+	if !resMeta.IsAuthenticated && sc != http.StatusOK {
+		p.serveUnauthorized(resMeta, rw, sc)
+	} else {
+		p.serveUpstream(resMeta, req, rw)
+	}
+}
+
+func (p *Plugin) serveUpstream(meta *authentik.ResponseMeta, req *http.Request, rw http.ResponseWriter) {
+	var cookies []*http.Cookie
+
+	if meta != nil {
+		for k, vs := range meta.Headers {
+			for _, v := range vs {
+				req.Header.Add(k, v)
+			}
+		}
+
+		cookies = meta.Cookies
+	} else {
+		cookies = []*http.Cookie{}
+	}
+
+	rcm := &httputil.ResponseMangler{
+		ResponseWriter: rw,
+		MangleFunc:     authentik.GetResponseMangler(cookies),
+	}
+
+	p.next.ServeHTTP(rcm, req)
 }
 
 func (p *Plugin) serveUnauthorized(meta *authentik.ResponseMeta, rw http.ResponseWriter, sc int) {
@@ -150,19 +182,4 @@ func (p *Plugin) serveUnauthorized(meta *authentik.ResponseMeta, rw http.Respons
 
 	rw.WriteHeader(sc)
 	_, _ = rw.Write([]byte(http.StatusText(sc)))
-}
-
-func (p *Plugin) serveUpstream(meta *authentik.ResponseMeta, req *http.Request, rw http.ResponseWriter) {
-	for k, vs := range meta.Headers {
-		for _, v := range vs {
-			req.Header.Add(k, v)
-		}
-	}
-
-	rcm := &httputil.ResponseMangler{
-		ResponseWriter: rw,
-		MangleFunc:     authentik.GetResponseMangler(meta.Cookies),
-	}
-
-	p.next.ServeHTTP(rcm, req)
 }

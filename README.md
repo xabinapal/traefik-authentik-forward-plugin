@@ -96,6 +96,9 @@ experimental:
 - `redirectStatusCode`: `uint`, optional, default `302` \
   HTTP status code to return when redirecting to login for request paths matched by `redirectPaths`.
 
+- `skippedPaths`: `[]string`, optional, default `["^/.*$"]` \
+  List of regex patterns. If the request path matches one of them, the plugin won't ask Authentik for authorization. This list has priority over other priorities.
+
 - `unauthorizedPaths`: `[]string`, optional, default `["^/.*$"]` \
   List of regex patterns. If the request path matches one of them, the plugin denies access using `unauthorizedStatusCode`. This list has priority over `redirectPaths`. Longest match wins.
 
@@ -104,10 +107,9 @@ experimental:
 
 > [!NOTE]
 > **Path matching precedence:**
-> 1. Both `unauthorizedPaths` and `redirectPaths` are checked.
-> 2. If no regex matches in either list, the request is allowed, but still sends user info to the upstream.
-> 3. If both lists contain matching regexes, the **longest matching pattern** (by string length) wins.
-> 4. If two matching regexes have the same length, the one from `unauthorizedPaths` takes precedence.
+> 1. The path is checked against `skippedPaths`. If any regex matches, the request is allowed and Authentik is not checked for authorization. `X-Authentik-*` headers won't be filled in the upstream request.
+> 2. Both `unauthorizedPaths` and `redirectPaths` are checked. If no regex matches in either list, the request is allowed, but Authentik is checked, and user info will be sent upstream if authenticated.
+> 3. If both lists contain matching regexes, the **longest matching pattern** (by string length) wins. If two matching regexes have the same length, the one from `unauthorizedPaths` takes precedence.
 
 ### HTTP Settings
 
