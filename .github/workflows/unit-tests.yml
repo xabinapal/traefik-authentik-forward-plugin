@@ -67,9 +67,18 @@ jobs:
           path: ${{ env.REPOPATH }}
           fetch-depth: 0
 
+      - name: install go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.21
+          cache: false
+
       - name: install yaegi ${{ matrix.yaegi-version }}
         run: |
           curl -sfL https://raw.githubusercontent.com/traefik/yaegi/master/install.sh | bash -s -- -b /usr/local/bin ${{ matrix.yaegi-version }}
 
       - name: run tests
-        run: yaegi test -v .
+        run: |
+          for pkg in $(go list ./...); do
+            yaegi test -v "${pkg}"
+          done

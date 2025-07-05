@@ -7,35 +7,6 @@ import (
 	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/authentik"
 )
 
-func TestGetAuthentikStartPath(t *testing.T) {
-	tests := []struct {
-		request  string
-		response string
-	}{
-		{
-			request:  "https://example.com/protected",
-			response: "https://example.com/outpost.goauthentik.io/start?rd=https%3A%2F%2Fexample.com%2Fprotected",
-		},
-		{
-			request:  "https://example.com/protected?query=value",
-			response: "https://example.com/outpost.goauthentik.io/start?rd=https%3A%2F%2Fexample.com%2Fprotected%3Fquery%3Dvalue",
-		},
-	}
-	for _, tt := range tests {
-		t.Run("with path "+tt.request, func(t *testing.T) {
-			url, err := url.Parse(tt.request)
-			if err != nil {
-				t.Fatalf("failed to parse url: %v", err)
-			}
-
-			path := authentik.GetAuthentikStartPath(url)
-			if path != tt.response {
-				t.Errorf("expected path to be %s, got %s", tt.response, path)
-			}
-		})
-	}
-}
-
 func TestIsAuthentikPathAllowed(t *testing.T) {
 	var tests []string
 
@@ -65,6 +36,35 @@ func TestIsAuthentikPathAllowed(t *testing.T) {
 			allowed := authentik.IsAuthentikPathAllowed(tt)
 			if allowed {
 				t.Errorf("expected path to be restricted")
+			}
+		})
+	}
+}
+
+func TestGetAuthentikStartPath(t *testing.T) {
+	tests := []struct {
+		request  string
+		response string
+	}{
+		{
+			request:  "https://example.com/protected",
+			response: "https://example.com/outpost.goauthentik.io/start?rd=https%3A%2F%2Fexample.com%2Fprotected",
+		},
+		{
+			request:  "https://example.com/protected?query=value",
+			response: "https://example.com/outpost.goauthentik.io/start?rd=https%3A%2F%2Fexample.com%2Fprotected%3Fquery%3Dvalue",
+		},
+	}
+	for _, tt := range tests {
+		t.Run("with path "+tt.request, func(t *testing.T) {
+			url, err := url.Parse(tt.request)
+			if err != nil {
+				t.Fatalf("failed to parse url: %v", err)
+			}
+
+			path := authentik.GetAuthentikStartPath(url)
+			if path != tt.response {
+				t.Errorf("expected path to be %s, got %s", tt.response, path)
 			}
 		})
 	}

@@ -29,6 +29,7 @@ const (
 
 //nolint:gochecknoglobals
 var (
+	DefaultSkippedPaths      = []string{}
 	DefaultUnauthorizedPaths = []string{"^/.*$"}
 	DefaultRedirectPaths     = []string{}
 )

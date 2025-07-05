@@ -19,6 +19,7 @@ func CreateConfig() *config.Config {
 		Address:                "",
 		UnauthorizedStatusCode: config.DefaultUnauthorizedStatusCode,
 		RedirectStatusCode:     config.DefaultRedirectStatusCode,
+		SkippedPaths:           config.DefaultSkippedPaths,
 		UnauthorizedPaths:      config.DefaultUnauthorizedPaths,
 		RedirectPaths:          config.DefaultRedirectPaths,
 
@@ -75,23 +76,28 @@ func (p *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		Cookies: authentik.GetCookies(req),
 	}
 
+	// remove authentik headers and cookies in request to upstream
 	authentik.RequestMangle(req)
 
 	if strings.HasPrefix(url.Path, authentik.BasePath) {
+		// send request to authentik
 		p.handleAuthentik(meta, req, rw)
 	} else {
+		// send request to upstream
 		p.handleUpstream(meta, req, rw)
 	}
 }
 
 func (p *Plugin) handleAuthentik(meta *authentik.RequestMeta, req *http.Request, rw http.ResponseWriter) {
 	if req.Method != http.MethodGet {
+		// only allow get requests to authentik
 		rw.WriteHeader(http.StatusMethodNotAllowed)
 		_, _ = rw.Write([]byte(http.StatusText(http.StatusMethodNotAllowed)))
 		return
 	}
 
 	if !authentik.IsAuthentikPathAllowed(meta.URL.Path) {
+		// return not found for internal authentik paths
 		rw.WriteHeader(http.StatusNotFound)
 		_, _ = rw.Write([]byte(http.StatusText(http.StatusNotFound)))
 		return
@@ -105,7 +111,7 @@ func (p *Plugin) handleAuthentik(meta *authentik.RequestMeta, req *http.Request,
 	}
 	defer func() { _ = res.Body.Close() }()
 
-	// copy headers from response to request
+	// write authentik response to downstream
 	for k, vs := range res.Header {
 		if strings.HasPrefix(k, authentik.HeaderPrefix) {
 			continue
@@ -116,10 +122,8 @@ func (p *Plugin) handleAuthentik(meta *authentik.RequestMeta, req *http.Request,
 		}
 	}
 
-	// send response
 	rw.WriteHeader(res.StatusCode)
 
-	// send response body
 	if _, err := io.Copy(rw, res.Body); err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
@@ -128,21 +132,26 @@ func (p *Plugin) handleAuthentik(meta *authentik.RequestMeta, req *http.Request,
 
 func (p *Plugin) handleUpstream(meta *authentik.RequestMeta, req *http.Request, rw http.ResponseWriter) {
 	if p.config.Authentik.IsSkippedPath(meta.URL.Path) {
+		// send request to upstream without checking for authentication
 		p.serveUpstream(nil, req, rw)
 		return
 	}
 
-	sc := p.config.Authentik.GetUnauthorizedStatusCode(meta.URL.Path)
-
-	resMeta, err := p.client.CheckRequest(meta)
+	// check if request is authenticated in authentik
+	resMeta, err := p.client.Check(meta)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	// get status code to return if request is not authenticated
+	sc := p.config.Authentik.GetUnauthorizedStatusCode(meta.URL.Path)
+
 	if !resMeta.IsAuthenticated && sc != http.StatusOK {
+		// return unauthorized if request is not authenticated and path is not allowed
 		p.serveUnauthorized(resMeta, rw, sc)
 	} else {
+		// send request to upstream with authentication metadata
 		p.serveUpstream(resMeta, req, rw)
 	}
 }
@@ -151,6 +160,7 @@ func (p *Plugin) serveUpstream(meta *authentik.ResponseMeta, req *http.Request, 
 	var cookies []*http.Cookie
 
 	if meta != nil {
+		// add authentication headers to upstream request
 		for k, vs := range meta.Headers {
 			for _, v := range vs {
 				req.Header.Add(k, v)
@@ -162,6 +172,7 @@ func (p *Plugin) serveUpstream(meta *authentik.ResponseMeta, req *http.Request, 
 		cookies = []*http.Cookie{}
 	}
 
+	// create response mangler after the middleware chain and upstream request
 	rcm := &httputil.ResponseMangler{
 		ResponseWriter: rw,
 		MangleFunc:     authentik.GetResponseMangler(cookies),
@@ -172,10 +183,12 @@ func (p *Plugin) serveUpstream(meta *authentik.ResponseMeta, req *http.Request, 
 
 func (p *Plugin) serveUnauthorized(meta *authentik.ResponseMeta, rw http.ResponseWriter, sc int) {
 	if sc >= 300 && sc < 400 {
+		// redirect client to authentication flow start
 		loc := authentik.GetAuthentikStartPath(meta.URL)
 		rw.Header().Set("Location", loc)
 	}
 
+	// add authentik session cookies to downstream response
 	for _, c := range meta.Cookies {
 		rw.Header().Add("Set-Cookie", c.String())
 	}

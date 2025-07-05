@@ -19,7 +19,8 @@ func NewClient(client *http.Client, config *Config) *Client {
 	}
 }
 
-func (c *Client) CheckRequest(meta *RequestMeta) (*ResponseMeta, error) {
+func (c *Client) Check(meta *RequestMeta) (*ResponseMeta, error) {
+	// send request to authentik to check if request is authenticated
 	res, err := c.Request(meta, AuthPath, "")
 	if err != nil {
 		return nil, err
@@ -47,6 +48,7 @@ func (c *Client) CheckRequest(meta *RequestMeta) (*ResponseMeta, error) {
 }
 
 func (c *Client) Request(meta *RequestMeta, path string, query string) (*http.Response, error) {
+	// send request to authentik
 	akReq, err := http.NewRequest(http.MethodGet, c.config.Address+path, nil)
 	if err != nil {
 		return nil, err
@@ -54,9 +56,11 @@ func (c *Client) Request(meta *RequestMeta, path string, query string) (*http.Re
 
 	akReq.URL.RawQuery = query
 
+	// add downstream request metadata
 	akReq.Header.Set("X-Forwarded-Host", meta.URL.Host)
 	akReq.Header.Set("X-Original-Uri", meta.URL.String())
 
+	// add downstream authentik session cookies
 	for _, c := range meta.Cookies {
 		akReq.AddCookie(c)
 	}
@@ -83,6 +87,7 @@ func (c *Client) mangleLocation(meta *RequestMeta, res *http.Response) error {
 	}
 
 	if strings.HasPrefix(location, c.config.Address+BasePath) {
+		// convert absolute outpost redirects to downstream host
 		location = strings.TrimPrefix(location, c.config.Address)
 
 		locURL, err := url.Parse(location)
@@ -102,6 +107,7 @@ func (c *Client) mangleLocation(meta *RequestMeta, res *http.Response) error {
 }
 
 func (c *Client) mangleCookies(res *http.Response) {
+	// get authentik session cookies from response
 	cookies := GetCookies(res)
 
 	res.Header.Del("Set-Cookie")
