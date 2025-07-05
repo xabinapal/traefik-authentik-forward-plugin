@@ -40,7 +40,7 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 			rw.WriteHeader(http.StatusAccepted)
 		})
 
-		config := &config.RawConfig{
+		config := &config.Config{
 			Address:                akServer.URL,
 			UnauthorizedStatusCode: http.StatusForbidden,
 			RedirectStatusCode:     http.StatusMovedPermanently,
@@ -93,7 +93,7 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 			t.Fatalf("expected next handler not to be called")
 		})
 
-		config := &config.RawConfig{
+		config := &config.Config{
 			Address:                akServer.URL,
 			UnauthorizedStatusCode: http.StatusForbidden,
 			RedirectStatusCode:     http.StatusMovedPermanently,
@@ -152,7 +152,7 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 			t.Fatalf("expected next handler not to be called")
 		})
 
-		config := &config.RawConfig{
+		config := &config.Config{
 			Address:                akServer.URL,
 			UnauthorizedStatusCode: http.StatusForbidden,
 			RedirectStatusCode:     http.StatusMovedPermanently,
@@ -230,15 +230,15 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 				t.Errorf("expected X-Authentik-User header to be %s, got %s", expectedUser, actualUser)
 			}
 
-			// check that authentik cookies were added to the request
-			if _, err := req.Cookie("authentik_proxy_user"); err != nil {
-				t.Error("expected authentik_proxy_user cookie to be added to request")
+			// check that authentik cookies were not added to the request
+			if _, err := req.Cookie("authentik_proxy_user"); err == nil {
+				t.Error("expected authentik_proxy_user cookie to not be added to request")
 			}
 
 			rw.WriteHeader(http.StatusAccepted)
 		})
 
-		config := &config.RawConfig{Address: akServer.URL}
+		config := &config.Config{Address: akServer.URL}
 		handler, _ := plugin.New(context.Background(), next, config, "test")
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com/users", nil)
@@ -272,7 +272,7 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 		// check that authentik cookies were added to the response
 		cookies := rw.Result().Cookies()
 		if len(cookies) != 1 {
-			t.Errorf("expected 1 cookie, got %d", len(cookies))
+			t.Fatalf("expected 1 cookie, got %d", len(cookies))
 		}
 
 		if cookies[0].Name != "authentik_proxy_user" {
@@ -296,7 +296,7 @@ func TestServeHTTP_AuthentikPaths(t *testing.T) {
 		}))
 		defer akServer.Close()
 
-		config := &config.RawConfig{Address: akServer.URL}
+		config := &config.Config{Address: akServer.URL}
 		handler, _ := plugin.New(context.Background(), nil, config, "test")
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com/outpost.goauthentik.io/start", nil)
@@ -332,7 +332,7 @@ func TestServeHTTP_AuthentikPaths(t *testing.T) {
 		}))
 		defer akServer.Close()
 
-		config := &config.RawConfig{Address: akServer.URL}
+		config := &config.Config{Address: akServer.URL}
 		handler, _ := plugin.New(context.Background(), nil, config, "test")
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com/outpost.goauthentik.io/auth/nginx", nil)

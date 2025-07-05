@@ -3,80 +3,42 @@ package httputil_test
 import (
 	"net/http"
 	"net/http/httptest"
-	"slices"
 	"testing"
 
 	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/httputil"
 )
 
-func TestResponseModifier_WriteHeader(t *testing.T) {
-	t.Run("cookie injection", func(t *testing.T) {
-		// create a response recorder
-		rw := httptest.NewRecorder()
+func TestResponseMangler(t *testing.T) {
+	t.Run("with mangle function", func(t *testing.T) {
+		mangleCalled := false
+		mangleFunc := func(rw http.ResponseWriter) {
+			mangleCalled = true
 
-		// add existing cookies to the response writer
-		cookies := []string{
-			"empty=",
-			"=bogon; Path=/",
-			"first_cookie=abc123; Path=/",
-			"test_1=old_test_1; Path=/",
-			"test_2=old_test_2; Path=/",
-			"other_cookie=value; Path=/",
+			rw.Header().Set("X-Mangle-Test", "test_value")
 		}
 
-		for _, cookie := range cookies {
-			rw.Header().Add("Set-Cookie", cookie)
+		responseWriter := httptest.NewRecorder()
+		responseMangler := &httputil.ResponseMangler{
+			ResponseWriter: responseWriter,
+			MangleFunc:     mangleFunc,
 		}
 
-		// create response modifier
-		rcm := &httputil.ResponseCookieModifier{
-			ResponseWriter: rw,
-			CookiesPrefix:  "test_",
-			Cookies: []*http.Cookie{
-				{Name: "test_1", Value: "new_test_1", Path: "/"},
-				{Name: "test_3", Value: "new_test_3", Path: "/"},
-			},
+		responseMangler.WriteHeader(http.StatusOK)
+
+		// check that the response code is the received one
+		expectedCode := http.StatusOK
+		if responseWriter.Code != expectedCode {
+			t.Errorf("expected status code %d, got %d", expectedCode, responseWriter.Code)
 		}
 
-		// call the function
-		rcm.WriteHeader(318)
-
-		// check status code
-		if rw.Code != 318 {
-			t.Errorf("expected status code 318, got %d", rw.Code)
+		// check that the mangle function was called
+		if !mangleCalled {
+			t.Fatalf("expected mangle function to be called")
 		}
 
-		// check cookies
-		expectedCookies := []string{
-			"empty=",
-			"first_cookie=abc123; Path=/",
-			"other_cookie=value; Path=/",
-			"test_1=new_test_1; Path=/",
-			"test_3=new_test_3; Path=/",
-		}
-
-		actualCookies := rw.Header().Values("Set-Cookie")
-
-		if len(actualCookies) != len(expectedCookies) {
-			t.Errorf("expected %d cookies, got %d", len(expectedCookies), len(actualCookies))
-			t.Errorf("Expected: %v", expectedCookies)
-			t.Errorf("Actual: %v", actualCookies)
-			return
-		}
-
-		// check each expected cookie is present
-		for _, expectedCookie := range expectedCookies {
-			found := slices.Contains(actualCookies, expectedCookie)
-			if !found {
-				t.Errorf("expected cookie %q not found in actual cookies", expectedCookie)
-			}
-		}
-
-		// check that no unexpected cookies are present
-		for _, cookie := range actualCookies {
-			if !slices.Contains(expectedCookies, cookie) {
-				t.Errorf("unexpected cookie %q found in actual cookies", cookie)
-			}
+		// check that the response mangling is applied
+		if responseWriter.Header().Get("X-Mangle-Test") != "test_value" {
+			t.Errorf("expected X-Mangle-Test header to be set, got %s", responseWriter.Header().Get("X-Mangle-Test"))
 		}
 	})
 }

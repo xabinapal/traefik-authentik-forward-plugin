@@ -2,32 +2,14 @@ package httputil
 
 import (
 	"net/http"
-	"strings"
 )
 
-type ResponseCookieModifier struct {
+type ResponseMangler struct {
 	http.ResponseWriter
-
-	CookiesPrefix string
-	Cookies       []*http.Cookie
+	MangleFunc func(rw http.ResponseWriter)
 }
 
-func (rcm *ResponseCookieModifier) WriteHeader(code int) {
-	cookies := rcm.ResponseWriter.Header().Values("Set-Cookie")
-	rcm.ResponseWriter.Header().Del("Set-Cookie")
-
-	for _, c := range cookies {
-		name := parseCookieName(c)
-		if name == "" || strings.HasPrefix(name, rcm.CookiesPrefix) {
-			continue
-		}
-
-		rcm.ResponseWriter.Header().Add("Set-Cookie", c)
-	}
-
-	for _, cookie := range rcm.Cookies {
-		rcm.ResponseWriter.Header().Add("Set-Cookie", cookie.String())
-	}
-
+func (rcm *ResponseMangler) WriteHeader(code int) {
+	rcm.MangleFunc(rcm.ResponseWriter)
 	rcm.ResponseWriter.WriteHeader(code)
 }
