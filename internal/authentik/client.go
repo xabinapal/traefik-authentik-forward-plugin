@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 )
 
@@ -18,40 +17,6 @@ func NewClient(client *http.Client, config *Config) *Client {
 		client: client,
 		config: config,
 	}
-}
-
-func (c *Config) GetUnauthorizedStatusCode(path string) int {
-	var longestMatch *regexp.Regexp
-	var longestMatchLength int
-	var longestMatchStatusCode int
-
-	for _, re := range c.UnauthorizedPaths {
-		if re.MatchString(path) {
-			l := len(re.String())
-			if l > longestMatchLength {
-				longestMatch = re
-				longestMatchLength = l
-				longestMatchStatusCode = c.UnauthorizedStatusCode
-			}
-		}
-	}
-
-	for _, re := range c.RedirectPaths {
-		if re.MatchString(path) {
-			l := len(re.String())
-			if l > longestMatchLength {
-				longestMatch = re
-				longestMatchLength = l
-				longestMatchStatusCode = c.RedirectStatusCode
-			}
-		}
-	}
-
-	if longestMatch != nil {
-		return longestMatchStatusCode
-	}
-
-	return http.StatusOK
 }
 
 func (c *Client) CheckRequest(meta *RequestMeta) (*ResponseMeta, error) {

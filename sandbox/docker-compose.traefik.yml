@@ -41,6 +41,7 @@ services:
       - traefik.http.middlewares.whoami_authentikforward.plugin.authentikForwardPlugin.address=http://akserver:9000
       - traefik.http.middlewares.whoami_authentikforward.plugin.authentikForwardPlugin.unauthorizedStatusCode=401
       - traefik.http.middlewares.whoami_authentikforward.plugin.authentikForwardPlugin.redirectStatusCode=302
+      - traefik.http.middlewares.whoami_authentikforward.plugin.authentikForwardPlugin.skippedPaths=^/skip/?$
       - traefik.http.middlewares.whoami_authentikforward.plugin.authentikForwardPlugin.unauthorizedPaths=^/deny/?$
       - traefik.http.middlewares.whoami_authentikforward.plugin.authentikForwardPlugin.redirectPaths=^/login/?$
 
@@ -53,5 +54,6 @@ services:
       - traefik.http.middlewares.whoami_secure_authentikforward.plugin.authentikForwardPlugin.cookiePolicy=strict
       - traefik.http.middlewares.whoami_secure_authentikforward.plugin.authentikForwardPlugin.unauthorizedStatusCode=401
       - traefik.http.middlewares.whoami_secure_authentikforward.plugin.authentikForwardPlugin.redirectStatusCode=302
+      - traefik.http.middlewares.whoami_secure_authentikforward.plugin.authentikForwardPlugin.skippedPaths=^/skip/?$
       - traefik.http.middlewares.whoami_secure_authentikforward.plugin.authentikForwardPlugin.unauthorizedPaths=^/deny/?$
       - traefik.http.middlewares.whoami_secure_authentikforward.plugin.authentikForwardPlugin.redirectPaths=^/login/?$

@@ -58,6 +58,17 @@ test.describe("authentication", () => {
     expect(await page.content()).toContain("X-Authentik-Username: akadmin");
   });
 
+  test("should not authenticate skipped pages", async ({
+    sharedContextPage: page,
+  }) => {
+    // go to main page
+    const response = (await page.goto("http://whoami.localhost/skip")) as Response;
+
+    // check for upstream
+    expect(response.status()).toBe(StatusCodes.OK);
+    expect(await page.content()).not.toContain("X-Authentik-Username");
+  });
+
   test.describe("logout", () => {
     test.beforeAll(async ({ sharedContextPage: page }) => {
       // go to logout page
