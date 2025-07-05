@@ -7,7 +7,14 @@ import: github.com/xabinapal/traefik-authentik-forward-plugin
 summary: Traefik plugin to integrate Authentik as a ForwardAuth provider, with enhanced workflow, streamlined configuration, and several bugfixes over the default implementation.
 
 testData:
+  # authentik settings
   address: https://authentik.example.com
+  unauthorizedStatusCode: 401
+  redirectStatusCode: 302
+  unauthorizedPaths: ["^/.*$"]
+  redirectPaths: []
+
+  # http settings
   tls:
     ca: "/path/to/ca.pem"
     cert: "/path/to/cert.pem"
@@ -16,7 +23,3 @@ testData:
     maxVersion: 13
     insecureSkipVerify: false
   timeout: "30s"
-  unauthorizedStatusCode: 401
-  redirectStatusCode: 302
-  unauthorizedPaths: ["^/.*$"]
-  redirectPaths: []

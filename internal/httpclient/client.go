@@ -7,64 +7,131 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-
-	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/config"
 )
 
-func CreateHTTPClient(config *config.Config) (*http.Client, error) {
-	transport, err := createHTTPTransport(config.TLS)
+func New(cfg *Config) (*http.Client, error) {
+	return NewWithReader(cfg, os.ReadFile)
+}
+
+func NewWithReader(cfg *Config, reader func(string) ([]byte, error)) (*http.Client, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("%w: config is required", ErrClientCreate)
+	}
+
+	transport, err := createHTTPTransport(cfg, reader)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrClientCreate, err)
 	}
 
 	client := &http.Client{
+		Timeout:   cfg.Timeout,
 		Transport: transport,
-		Timeout:   config.Timeout,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse // don't follow redirects
+			// don't follow redirects
+			return http.ErrUseLastResponse
 		},
 	}
 
 	return client, nil
 }
 
-func createHTTPTransport(tlsConfig *config.TLSConfig) (*http.Transport, error) {
-	if tlsConfig == nil {
-		return nil, errors.New("tls config is required")
+func createHTTPTransport(cfg *Config, reader func(string) ([]byte, error)) (*http.Transport, error) {
+	transport := &http.Transport{}
+
+	tlsConfig, err := createTLSConfig(cfg, reader)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrClientCreate, err)
 	}
 
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			MinVersion:         tlsConfig.MinVersion,
-			MaxVersion:         tlsConfig.MaxVersion,
-			InsecureSkipVerify: tlsConfig.InsecureSkipVerify, //nolint:gosec
-		},
-	}
-
-	// load ca certificate if provided
-	if tlsConfig.CA != "" {
-		caCert, err := os.ReadFile(tlsConfig.CA)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load ca certificate: %w", err)
-		}
-
-		transport.TLSClientConfig.RootCAs = x509.NewCertPool()
-		if !transport.TLSClientConfig.RootCAs.AppendCertsFromPEM(caCert) {
-			return nil, errors.New("failed to parse ca certificate")
-		}
-	}
-
-	// load client certificate and key if provided
-	if tlsConfig.Cert != "" && tlsConfig.Key != "" {
-		cert, err := tls.LoadX509KeyPair(tlsConfig.Cert, tlsConfig.Key)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load client certificate: %w", err)
-		}
-
-		transport.TLSClientConfig.Certificates = []tls.Certificate{cert}
-	} else if tlsConfig.Cert != "" || tlsConfig.Key != "" {
-		return nil, errors.New("both cert and key must be provided for client certificate authentication")
-	}
+	transport.TLSClientConfig = tlsConfig
 
 	return transport, nil
+}
+
+func createTLSConfig(cfg *Config, reader func(string) ([]byte, error)) (*tls.Config, error) {
+	tlsConfig := &tls.Config{} //nolint:gosec
+
+	err := setCertificates(cfg, tlsConfig, reader)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrClientCreate, err)
+	}
+
+	err = setVersions(cfg, tlsConfig)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrClientCreate, err)
+	}
+
+	// set insecure skip verify
+	tlsConfig.InsecureSkipVerify = cfg.TLS.InsecureSkipVerify
+
+	return tlsConfig, nil
+}
+
+func setCertificates(cfg *Config, tlsConfig *tls.Config, reader func(string) ([]byte, error)) error {
+	// load ca certificate if provided
+	if cfg.TLS.CA != "" {
+		caData, err := reader(cfg.TLS.CA)
+		if err != nil {
+			return fmt.Errorf("failed to load ca certificate: %w", err)
+		}
+
+		ca := x509.NewCertPool()
+		if ok := ca.AppendCertsFromPEM(caData); !ok {
+			return errors.New("failed to parse ca certificate")
+		}
+
+		tlsConfig.RootCAs = ca
+	}
+
+	// load client key pair if provided
+	if cfg.TLS.Cert != "" && cfg.TLS.Key != "" {
+		certData, err := reader(cfg.TLS.Cert)
+		if err != nil {
+			return fmt.Errorf("failed to load client certificate: %w", err)
+		}
+
+		keyData, err := reader(cfg.TLS.Key)
+		if err != nil {
+			return fmt.Errorf("failed to load client key: %w", err)
+		}
+
+		cert, err := tls.X509KeyPair(certData, keyData)
+		if err != nil {
+			return fmt.Errorf("failed to parse client key pair: %w", err)
+		}
+
+		tlsConfig.Certificates = []tls.Certificate{cert}
+	} else if cfg.TLS.Cert != "" || cfg.TLS.Key != "" {
+		return errors.New("both cert and key must be provided")
+	}
+
+	return nil
+}
+
+func setVersions(cfg *Config, tlsConfig *tls.Config) error {
+	// set minimum tls version
+	switch {
+	case cfg.TLS.MinVersion == 0:
+		tlsConfig.MinVersion = tls.VersionTLS12
+	case cfg.TLS.MaxVersion >= tls.VersionTLS10 && cfg.TLS.MaxVersion <= tls.VersionTLS13:
+		tlsConfig.MinVersion = cfg.TLS.MinVersion
+	default:
+		return errors.New("tls.minVersion is not valid")
+	}
+
+	// set maximum tls version
+	switch {
+	case cfg.TLS.MaxVersion == 0:
+		tlsConfig.MaxVersion = tls.VersionTLS13
+	case cfg.TLS.MaxVersion >= tls.VersionTLS10 && cfg.TLS.MaxVersion <= tls.VersionTLS13:
+		tlsConfig.MaxVersion = cfg.TLS.MaxVersion
+	default:
+		return errors.New("tls.maxVersion is not valid")
+	}
+
+	if tlsConfig.MinVersion > tlsConfig.MaxVersion {
+		return errors.New("tls.minVersion is greater than tls.maxVersion")
+	}
+
+	return nil
 }

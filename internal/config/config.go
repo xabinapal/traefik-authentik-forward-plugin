@@ -1,33 +1,13 @@
 package config
 
 import (
-	"fmt"
-	"net/http"
-	"regexp"
-	"time"
+	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/authentik"
+	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/httpclient"
 )
 
-const (
-	DefaultTimeout                = "0s"
-	DefaultUnauthorizedStatusCode = http.StatusUnauthorized
-	DefaultRedirectStatusCode     = http.StatusFound
-)
-
-//nolint:gochecknoglobals
-var (
-	DefaultUnauthorizedPaths = []string{"^/.*$"}
-	DefaultRedirectPaths     = []string{}
-)
-
-type RawConfig struct {
+type Config struct {
 	// The address of the Authentik server to forward requests to.
 	Address string `json:"address"`
-
-	// Connection timeout duration as a string (e.g., "30s", "1m")
-	Timeout string `json:"timeout,omitempty"`
-
-	// TLS configuration
-	TLS *RawTLSConfig `json:"tls,omitempty"`
 
 	// The status code to return when the request is unauthorized.
 	UnauthorizedStatusCode uint16 `json:"unauthorizedStatusCode,omitempty"`
@@ -40,125 +20,35 @@ type RawConfig struct {
 
 	// List of path regexes that will be treated as redirections.
 	RedirectPaths []string `json:"redirectPaths,omitempty"`
+
+	// Connection timeout duration as a string (e.g., "30s", "1m")
+	Timeout string `json:"timeout,omitempty"`
+
+	// TLS configuration
+	TLS TLSConfig `json:"tls,omitempty"`
 }
 
-type Config struct {
-	RawConfig
-	Timeout                time.Duration
-	TLS                    *TLSConfig
-	UnauthorizedStatusCode int
-	RedirectStatusCode     int
-	UnauthorizedPaths      []*regexp.Regexp
-	RedirectPaths          []*regexp.Regexp
+type TLSConfig struct {
+	// Path to the CA certificate file
+	CA string `json:"ca,omitempty"`
+
+	// Path to the client certificate file
+	Cert string `json:"cert,omitempty"`
+
+	// Path to the client private key file
+	Key string `json:"key,omitempty"`
+
+	// Minimum TLS version (10=1.0, 11=1.1, 12=1.2, 13=1.3)
+	MinVersion uint16 `json:"minVersion,omitempty"`
+
+	// Maximum TLS version (10=1.0, 11=1.1, 12=1.2, 13=1.3)
+	MaxVersion uint16 `json:"maxVersion,omitempty"`
+
+	// Skip certificate verification
+	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
 }
 
-func (c *RawConfig) Parse() (*Config, error) {
-	var err error
-
-	if c.Address == "" {
-		return nil, fmt.Errorf("%w: address is required", ErrConfigParse)
-	}
-
-	// parse timeout
-	var timeout time.Duration
-	if c.Timeout == "" {
-		c.Timeout = DefaultTimeout
-	}
-
-	timeout, err = time.ParseDuration(c.Timeout)
-	if err != nil {
-		return nil, fmt.Errorf("%w: timeout is not valid: %w", ErrConfigParse, err)
-	}
-
-	c.Timeout = timeout.String()
-
-	// parse tls config
-	var tlsConfig *TLSConfig
-	if c.TLS == nil {
-		c.TLS = &RawTLSConfig{}
-	}
-
-	tlsConfig, err = c.TLS.Parse()
-	if err != nil {
-		return nil, fmt.Errorf("%w: tls configuration is not valid: %w", ErrConfigParse, err)
-	}
-
-	// set default unauthorized status code
-	if c.UnauthorizedStatusCode == 0 {
-		c.UnauthorizedStatusCode = DefaultUnauthorizedStatusCode
-	}
-
-	// set default redirect status code
-	if c.RedirectStatusCode == 0 {
-		c.RedirectStatusCode = DefaultRedirectStatusCode
-	}
-
-	// parse unauthorized paths
-	unauthorizedPaths := make([]*regexp.Regexp, 0, len(c.UnauthorizedPaths))
-	for _, path := range c.UnauthorizedPaths {
-		re, err := regexp.Compile(path)
-		if err != nil {
-			return nil, fmt.Errorf("%w: unauthorizedPaths[%s] is not valid: %w", ErrConfigParse, path, err)
-		}
-
-		unauthorizedPaths = append(unauthorizedPaths, re)
-	}
-
-	// parse redirect paths
-	redirectPaths := make([]*regexp.Regexp, 0, len(c.RedirectPaths))
-	for _, path := range c.RedirectPaths {
-		re, err := regexp.Compile(path)
-		if err != nil {
-			return nil, fmt.Errorf("%w: redirectPaths[%s] is not valid: %w", ErrConfigParse, path, err)
-		}
-
-		redirectPaths = append(redirectPaths, re)
-	}
-
-	// create config
-	pc := &Config{
-		RawConfig:              *c,
-		Timeout:                timeout,
-		TLS:                    tlsConfig,
-		UnauthorizedStatusCode: int(c.UnauthorizedStatusCode),
-		RedirectStatusCode:     int(c.RedirectStatusCode),
-		UnauthorizedPaths:      unauthorizedPaths,
-		RedirectPaths:          redirectPaths,
-	}
-
-	return pc, nil
-}
-
-func (c *Config) GetUnauthorizedStatusCode(path string) int {
-	var longestMatch *regexp.Regexp
-	var longestMatchLength int
-	var longestMatchStatusCode int
-
-	for _, re := range c.UnauthorizedPaths {
-		if re.MatchString(path) {
-			l := len(re.String())
-			if l > longestMatchLength {
-				longestMatch = re
-				longestMatchLength = l
-				longestMatchStatusCode = c.UnauthorizedStatusCode
-			}
-		}
-	}
-
-	for _, re := range c.RedirectPaths {
-		if re.MatchString(path) {
-			l := len(re.String())
-			if l > longestMatchLength {
-				longestMatch = re
-				longestMatchLength = l
-				longestMatchStatusCode = c.RedirectStatusCode
-			}
-		}
-	}
-
-	if longestMatch != nil {
-		return longestMatchStatusCode
-	}
-
-	return http.StatusOK
+type PluginConfig struct {
+	Authentik  *authentik.Config
+	HTTPClient *httpclient.Config
 }

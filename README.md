@@ -59,7 +59,8 @@ Authentik provides multiple outpost endpoints. This plugin uses the `/outpost.go
 
 It also avoids problems caused by proxies, load balancers, or CDNs that often mess with `X-Forwarded-*` HTTP headers required by the Traefik endpoint. Instead, the nginx endpoint uses an additional `X-Original-Uri` header, which stays intact across hops. This makes your auth setup more reliable and predictable.
 
-> **⚠️ Note:** Authentik still relies on the `X-Forwarded-Host` header, so make sure it isn't modified by proxies in the request chain. That's still much simpler than managing all the headers required by other approaches.
+> [!IMPORTANT]
+> Authentik still relies on the `X-Forwarded-Host` header, so make sure it isn't modified by proxies in the request chain. That's still much simpler than managing all the headers required by other approaches.
 
 ## Installation
 
@@ -84,13 +85,36 @@ experimental:
 
 ## Configuration
 
+### Authentik settings
+
 - `address`: `string`, **required** \
   Base URL of your Authentik server (e.g., `https://auth.example.com`).
+
+- `unauthorizedStatusCode`: `uint`, optional, default `401` \
+  HTTP status code to return when denying access for request paths matched by `unauthorizedPaths`.
+
+- `redirectStatusCode`: `uint`, optional, default `302` \
+  HTTP status code to return when redirecting to login for request paths matched by `redirectPaths`.
+
+- `unauthorizedPaths`: `[]string`, optional, default `["^/.*$"]` \
+  List of regex patterns. If the request path matches one of them, the plugin denies access using `unauthorizedStatusCode`. This list has priority over `redirectPaths`. Longest match wins.
+
+- `redirectPaths`: `[]string`, optional, default `[]` \
+  List of regex patterns. If the request path matches one of them, the plugin redirects to Authentik using `redirectStatusCode`. Longest match wins.
+
+> [!NOTE]
+> **Path matching precedence:**
+> 1. Both `unauthorizedPaths` and `redirectPaths` are checked.
+> 2. If no regex matches in either list, the request is allowed, but still sends user info to the upstream.
+> 3. If both lists contain matching regexes, the **longest matching pattern** (by string length) wins.
+> 4. If two matching regexes have the same length, the one from `unauthorizedPaths` takes precedence.
+
+### HTTP Settings
 
 - `timeout`: `string`, optional, default `0s` \
   Connection timeout duration for requests to Authentik (e.g., `"30s"`, `"1m"`). If not specified or equals to `0`, no timeout is applied.
 
-- `tlsca`: `string`, optional \
+- `tls.ca`: `string`, optional \
    Path to the CA certificate file for verifying the Authentik server certificate.
 
 - `tls.cert`: `string`, optional \
@@ -107,25 +131,6 @@ experimental:
 
 - `tls.insecureSkipVerify`: `bool`, optional, default `false` \
   If set, skip TLS certificate verification, not recommended for production.
-
-- `unauthorizedStatusCode`: `uint`, optional, default `401` \
-  HTTP status code to return when denying access for request paths matched by `unauthorizedPaths`.
-
-- `redirectStatusCode`: `uint`, optional, default `302` \
-  HTTP status code to return when redirecting to login for request paths matched by `redirectPaths`.
-
-- `unauthorizedPaths`: `[]string`, optional, default `["^/.*$"]` \
-  List of regex patterns. If the request path matches one of them, the plugin denies access using `unauthorizedStatusCode`. This list has priority over `redirectPaths`. Longest match wins.
-
-- `redirectPaths`: `[]string`, optional, default `[]` \
-  List of regex patterns. If the request path matches one of them, the plugin redirects to Authentik using `redirectStatusCode`. Longest match wins.
-
-**Path matching precedence:**
-
-1. Both `unauthorizedPaths` and `redirectPaths` are checked.
-2. If no regex matches in either list, the request is allowed, but still sends user info to the upstream.
-3. If both lists contain matching regexes, the **longest matching pattern** (by string length) wins.
-4. If two matching regexes have the same length, the one from `unauthorizedPaths` takes precedence.
 
 ## Examples
 

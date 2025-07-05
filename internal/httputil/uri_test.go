@@ -9,9 +9,7 @@ import (
 )
 
 func TestGetRequestURI(t *testing.T) {
-	t.Run("request with invalid url", func(t *testing.T) {
-		// if an url is invalid and url.Parse throws an error,
-		// the error should be returned
+	t.Run("with invalid value", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "http://localhost", nil)
 		req.RequestURI = "://localhost"
 
@@ -26,52 +24,7 @@ func TestGetRequestURI(t *testing.T) {
 		}
 	})
 
-	t.Run("request with no scheme", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/path?query=value", nil)
-
-		uri, err := httputil.GetRequestURI(req)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		// check that the scheme is http
-		expectedScheme := "http"
-		if uri.Scheme != expectedScheme {
-			t.Errorf("expected scheme to be %s, got %s", expectedScheme, uri.Scheme)
-		}
-	})
-
-	t.Run("request with http scheme", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "http://example.com/path?query=value", nil)
-
-		uri, err := httputil.GetRequestURI(req)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		// check that the scheme is http
-		expectedScheme := "http"
-		if uri.Scheme != expectedScheme {
-			t.Errorf("expected scheme to be %s, got %s", expectedScheme, uri.Scheme)
-		}
-	})
-
-	t.Run("request with https scheme", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "https://example.com/path?query=value", nil)
-
-		uri, err := httputil.GetRequestURI(req)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		// check that the scheme is https
-		expectedScheme := "https"
-		if uri.Scheme != expectedScheme {
-			t.Errorf("expected scheme to be %s, got %s", expectedScheme, uri.Scheme)
-		}
-	})
-
-	t.Run("request parts", func(t *testing.T) {
+	t.Run("with valid value", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "http://example.com/path?query=value", nil)
 
 		uri, err := httputil.GetRequestURI(req)
@@ -101,6 +54,52 @@ func TestGetRequestURI(t *testing.T) {
 		expectedQuery := "query=value"
 		if uri.RawQuery != expectedQuery {
 			t.Errorf("expected query to be %s, got %s", expectedQuery, uri.RawQuery)
+		}
+	})
+
+	t.Run("with no scheme", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "http://example.com/path", nil)
+		req.RequestURI = "example.com/path"
+
+		uri, err := httputil.GetRequestURI(req)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		// check that the scheme is http
+		expectedScheme := "http"
+		if uri.Scheme != expectedScheme {
+			t.Errorf("expected scheme to be %s, got %s", expectedScheme, uri.Scheme)
+		}
+	})
+
+	t.Run("with http scheme", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "http://example.com/path", nil)
+
+		uri, err := httputil.GetRequestURI(req)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		// check that the scheme is http
+		expectedScheme := "http"
+		if uri.Scheme != expectedScheme {
+			t.Errorf("expected scheme to be %s, got %s", expectedScheme, uri.Scheme)
+		}
+	})
+
+	t.Run("with https scheme", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "https://example.com/path", nil)
+
+		uri, err := httputil.GetRequestURI(req)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		// check that the scheme is https
+		expectedScheme := "https"
+		if uri.Scheme != expectedScheme {
+			t.Errorf("expected scheme to be %s, got %s", expectedScheme, uri.Scheme)
 		}
 	})
 }

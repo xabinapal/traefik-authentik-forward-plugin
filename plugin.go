@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/authentik"
@@ -14,11 +13,18 @@ import (
 	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/httputil"
 )
 
-func CreateConfig() *config.RawConfig {
-	return &config.RawConfig{
-		Address: "",
+func CreateConfig() *config.Config {
+	return &config.Config{
+		// authentik settings
+		Address:                "",
+		UnauthorizedStatusCode: config.DefaultUnauthorizedStatusCode,
+		RedirectStatusCode:     config.DefaultRedirectStatusCode,
+		UnauthorizedPaths:      config.DefaultUnauthorizedPaths,
+		RedirectPaths:          config.DefaultRedirectPaths,
+
+		// http settings
 		Timeout: config.DefaultTimeout,
-		TLS: &config.RawTLSConfig{
+		TLS: config.TLSConfig{
 			CA:                 "",
 			Cert:               "",
 			Key:                "",
@@ -26,30 +32,28 @@ func CreateConfig() *config.RawConfig {
 			MaxVersion:         config.DefaultTLSMaxVersion,
 			InsecureSkipVerify: config.DefaultTLSInsecureSkipVerify,
 		},
-		UnauthorizedStatusCode: config.DefaultUnauthorizedStatusCode,
-		RedirectStatusCode:     config.DefaultRedirectStatusCode,
-		UnauthorizedPaths:      config.DefaultUnauthorizedPaths,
-		RedirectPaths:          config.DefaultRedirectPaths,
 	}
 }
 
 type Plugin struct {
 	next   http.Handler
-	config *config.Config
+	config *config.PluginConfig
 	name   string
-	client *http.Client
+	client *authentik.Client
 }
 
-func New(ctx context.Context, next http.Handler, config *config.RawConfig, name string) (http.Handler, error) {
+func New(ctx context.Context, next http.Handler, config *config.Config, name string) (http.Handler, error) {
 	pc, err := config.Parse()
 	if err != nil {
-		return nil, fmt.Errorf("invalid config: %w", err)
+		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
-	client, err := httpclient.CreateHTTPClient(pc)
+	httpClient, err := httpclient.New(pc.HTTPClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create http client: %w", err)
 	}
+
+	client := authentik.NewClient(httpClient, pc.Authentik)
 
 	return &Plugin{
 		next:   next,
@@ -59,166 +63,106 @@ func New(ctx context.Context, next http.Handler, config *config.RawConfig, name 
 	}, nil
 }
 
-func (a *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+func (p *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	reqURL, err := httputil.GetRequestURI(req)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	meta := &authentik.RequestMeta{
+		URL:     reqURL,
+		Cookies: authentik.GetCookies(req),
+	}
+
+	authentik.RequestMangle(req)
+
 	if strings.HasPrefix(reqURL.Path, authentik.BasePath) {
-		a.handleAuthentik(rw, req, reqURL)
+		if req.Method == http.MethodGet {
+			p.handleAuthentik(meta, rw)
+		} else {
+			rw.WriteHeader(http.StatusMethodNotAllowed)
+			_, _ = rw.Write([]byte(http.StatusText(http.StatusMethodNotAllowed)))
+			return
+		}
+	} else if state, err := p.client.CheckRequest(meta); err == nil {
+		p.handleUpstream(state, req, rw)
 	} else {
-		a.handleUpstream(rw, req, reqURL)
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
 	}
 }
 
-func (a *Plugin) handleAuthentik(rw http.ResponseWriter, req *http.Request, reqURL *url.URL) {
-	if !authentik.IsPathAllowedDownstream(reqURL.Path) {
+func (p *Plugin) handleAuthentik(meta *authentik.RequestMeta, rw http.ResponseWriter) {
+	if !authentik.IsAuthentikPathAllowed(meta.URL.Path) {
 		rw.WriteHeader(http.StatusNotFound)
 		_, _ = rw.Write([]byte(http.StatusText(http.StatusNotFound)))
 		return
 	}
 
-	akRes, err := a.requestAuthentik(req, reqURL, reqURL.Path)
+	// send request to authentik
+	res, err := p.client.Request(meta, meta.URL.Path, meta.URL.RawQuery)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer func() { _ = akRes.Body.Close() }()
+	defer func() { _ = res.Body.Close() }()
 
-	a.serveAuthentik(rw, reqURL, akRes)
-}
+	// copy headers from response to request
+	for k, vs := range res.Header {
+		if strings.HasPrefix(k, authentik.HeaderPrefix) {
+			continue
+		}
 
-func (a *Plugin) handleUpstream(rw http.ResponseWriter, req *http.Request, reqURL *url.URL) {
-	akRes, err := a.requestAuthentik(req, reqURL, authentik.AuthPath)
-	if err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer func() { _ = akRes.Body.Close() }()
-
-	if sc := a.config.GetUnauthorizedStatusCode(reqURL.Path); sc == http.StatusOK || akRes.StatusCode == http.StatusOK {
-		a.serveUpstream(rw, req, akRes)
-	} else {
-		a.serveUnauthorized(rw, reqURL, sc)
-	}
-}
-
-func (a *Plugin) requestAuthentik(req *http.Request, reqURL *url.URL, akPath string) (*http.Response, error) {
-	akReq, err := http.NewRequest(req.Method, a.config.Address+akPath, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	akReq.URL.RawQuery = reqURL.RawQuery
-
-	akReq.Header.Set("X-Forwarded-Host", reqURL.Host)
-	akReq.Header.Set("X-Original-Uri", reqURL.String())
-
-	for _, c := range authentik.GetCookies(req) {
-		akReq.AddCookie(c)
-	}
-
-	akRes, err := a.client.Do(akReq)
-	if err != nil {
-		return nil, err
-	}
-
-	return akRes, nil
-}
-
-func (a *Plugin) serveAuthentik(rw http.ResponseWriter, reqURL *url.URL, akRes *http.Response) {
-	for k, vs := range akRes.Header {
-		rw.Header().Del(k)
 		for _, v := range vs {
 			rw.Header().Add(k, v)
 		}
 	}
 
-	location := akRes.Header.Get("Location")
-	if location != "" {
-		if strings.HasPrefix(location, a.config.Address+authentik.BasePath) {
-			location = strings.TrimPrefix(location, a.config.Address)
+	// send response
+	rw.WriteHeader(res.StatusCode)
 
-			locURL, err := url.Parse(location)
-			if err != nil {
-				http.Error(rw, err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			locURL.Scheme = reqURL.Scheme
-			locURL.Host = reqURL.Host
-
-			location = locURL.String()
-		}
-
-		rw.Header().Set("Location", location)
-		rw.WriteHeader(akRes.StatusCode)
-		return
-	}
-
-	rw.WriteHeader(akRes.StatusCode)
-
-	if _, err := io.Copy(rw, akRes.Body); err != nil {
+	// send response body
+	if _, err := io.Copy(rw, res.Body); err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
-func (a *Plugin) serveUpstream(rw http.ResponseWriter, req *http.Request, akRes *http.Response) {
-	akUserHeaders := []string{}
-	for k := range req.Header {
-		if strings.HasPrefix(k, "X-Authentik-") {
-			akUserHeaders = append(akUserHeaders, k)
-		}
+func (p *Plugin) handleUpstream(meta *authentik.ResponseMeta, req *http.Request, rw http.ResponseWriter) {
+	sc := p.config.Authentik.GetUnauthorizedStatusCode(meta.URL.Path)
+
+	if !meta.IsAuthenticated && sc != http.StatusOK {
+		p.serveUnauthorized(meta, rw, sc)
+	} else {
+		p.serveUpstream(meta, req, rw)
+	}
+}
+
+func (p *Plugin) serveUnauthorized(meta *authentik.ResponseMeta, rw http.ResponseWriter, sc int) {
+	if sc >= 300 && sc < 400 {
+		loc := authentik.GetAuthentikStartPath(meta.URL)
+		rw.Header().Set("Location", loc)
 	}
 
-	for _, h := range akUserHeaders {
-		req.Header.Del(h)
+	for _, c := range meta.Cookies {
+		rw.Header().Add("Set-Cookie", c.String())
 	}
 
-	if akRes == nil {
-		a.next.ServeHTTP(rw, req)
-		return
-	}
+	rw.WriteHeader(sc)
+	_, _ = rw.Write([]byte(http.StatusText(sc)))
+}
 
-	headers := authentik.GetHeaders(akRes)
-	for k, vs := range headers {
+func (p *Plugin) serveUpstream(meta *authentik.ResponseMeta, req *http.Request, rw http.ResponseWriter) {
+	for k, vs := range meta.Headers {
 		for _, v := range vs {
 			req.Header.Add(k, v)
 		}
 	}
 
-	cookies := authentik.GetCookies(akRes)
-	for _, c := range cookies {
-		req.AddCookie(c)
-	}
-
-	rcm := &httputil.ResponseCookieModifier{
+	rcm := &httputil.ResponseMangler{
 		ResponseWriter: rw,
-
-		Cookies:       cookies,
-		CookiesPrefix: authentik.CookiePrefix,
+		MangleFunc:     authentik.GetResponseMangler(meta.Cookies),
 	}
 
-	a.next.ServeHTTP(rcm, req)
-}
-
-func (a *Plugin) serveUnauthorized(rw http.ResponseWriter, reqURL *url.URL, sc int) {
-	if sc >= 300 && sc < 400 {
-		loc := url.URL{
-			Scheme: reqURL.Scheme,
-			Host:   reqURL.Host,
-			Path:   authentik.BasePath + "/start",
-			RawQuery: url.Values{
-				"rd": {reqURL.String()},
-			}.Encode(),
-		}
-
-		rw.Header().Set("Location", loc.String())
-	}
-
-	rw.WriteHeader(sc)
-	_, _ = rw.Write([]byte(http.StatusText(sc)))
+	p.next.ServeHTTP(rcm, req)
 }

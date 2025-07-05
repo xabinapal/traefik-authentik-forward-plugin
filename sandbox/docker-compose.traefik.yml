@@ -50,7 +50,6 @@ services:
       - traefik.http.middlewares.whoami_secure_stripprefix.stripPrefix.prefixes=/test
       - traefik.http.middlewares.whoami_secure_authentikforward.plugin.authentikForwardPlugin.address=https://akserver:9443
       - traefik.http.middlewares.whoami_secure_authentikforward.plugin.authentikForwardPlugin.tls.insecureSkipVerify=true
-      - traefik.http.middlewares.whoami_secure_authentikforward.plugin.authentikForwardPlugin.cookiePolicy=strict
       - traefik.http.middlewares.whoami_secure_authentikforward.plugin.authentikForwardPlugin.unauthorizedStatusCode=401
       - traefik.http.middlewares.whoami_secure_authentikforward.plugin.authentikForwardPlugin.redirectStatusCode=302
       - traefik.http.middlewares.whoami_secure_authentikforward.plugin.authentikForwardPlugin.unauthorizedPaths=^/deny/?$
