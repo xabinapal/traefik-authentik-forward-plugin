@@ -74,23 +74,23 @@ func (c *Client) Request(meta *RequestMeta, path string, query string) (*http.Re
 		return nil, err
 	}
 
-	c.mangleCookies(res)
+	c.mangleCookies(meta, res)
 
 	return res, nil
 }
 
 func (c *Client) mangleLocation(meta *RequestMeta, res *http.Response) error {
-	location := res.Header.Get("Location")
-	if location == "" {
+	loc := res.Header.Get("Location")
+	if loc == "" {
 		res.Header.Del("Location")
 		return nil
 	}
 
-	if strings.HasPrefix(location, c.config.Address+BasePath) {
+	if strings.HasPrefix(loc, c.config.Address+BasePath) {
 		// convert absolute outpost redirects to downstream host
-		location = strings.TrimPrefix(location, c.config.Address)
+		loc = strings.TrimPrefix(loc, c.config.Address)
 
-		locURL, err := url.Parse(location)
+		locURL, err := url.Parse(loc)
 		if err != nil {
 			return err
 		}
@@ -98,17 +98,23 @@ func (c *Client) mangleLocation(meta *RequestMeta, res *http.Response) error {
 		locURL.Scheme = meta.URL.Scheme
 		locURL.Host = meta.URL.Host
 
-		location = locURL.String()
+		loc = locURL.String()
 	}
 
-	res.Header.Set("Location", location)
+	res.Header.Set("Location", loc)
 
 	return nil
 }
 
-func (c *Client) mangleCookies(res *http.Response) {
+func (c *Client) mangleCookies(meta *RequestMeta, res *http.Response) {
 	// get authentik session cookies from response
 	cookies := GetCookies(res)
+
+	// set cookie attributes
+	for _, cookie := range cookies {
+		cookie.HttpOnly = true
+		cookie.Secure = meta.URL.Scheme == "https"
+	}
 
 	res.Header.Del("Set-Cookie")
 	for _, cookie := range cookies {

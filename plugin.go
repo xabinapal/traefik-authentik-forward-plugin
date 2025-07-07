@@ -184,7 +184,7 @@ func (p *Plugin) serveUpstream(meta *authentik.ResponseMeta, req *http.Request, 
 func (p *Plugin) serveUnauthorized(meta *authentik.ResponseMeta, rw http.ResponseWriter, sc int) {
 	if sc >= 300 && sc < 400 {
 		// redirect client to authentication flow start
-		loc := authentik.GetAuthentikStartPath(meta.URL)
+		loc := authentik.GetStartURL(meta.URL)
 		rw.Header().Set("Location", loc)
 	}
 
