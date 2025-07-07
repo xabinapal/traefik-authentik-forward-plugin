@@ -41,30 +41,24 @@ func TestIsAuthentikPathAllowed(t *testing.T) {
 	}
 }
 
-func TestGetAuthentikStartPath(t *testing.T) {
-	tests := []struct {
-		request  string
-		response string
-	}{
-		{
-			request:  "https://example.com/protected",
-			response: "https://example.com/outpost.goauthentik.io/start?rd=https%3A%2F%2Fexample.com%2Fprotected",
-		},
-		{
-			request:  "https://example.com/protected?query=value",
-			response: "https://example.com/outpost.goauthentik.io/start?rd=https%3A%2F%2Fexample.com%2Fprotected%3Fquery%3Dvalue",
-		},
+func TestGetStartURL(t *testing.T) {
+	tests := []string{
+		"/protected",
+		"/protected?query=value",
 	}
 	for _, tt := range tests {
-		t.Run("with path "+tt.request, func(t *testing.T) {
-			url, err := url.Parse(tt.request)
+		t.Run("with path "+tt, func(t *testing.T) {
+			origUrl, err := url.Parse("https://example.com" + tt)
 			if err != nil {
 				t.Fatalf("failed to parse url: %v", err)
 			}
 
-			path := authentik.GetAuthentikStartPath(url)
-			if path != tt.response {
-				t.Errorf("expected path to be %s, got %s", tt.response, path)
+			// check that the url is correct
+			encodedUrl := url.QueryEscape(origUrl.String())
+			expectedUrl := "https://example.com/outpost.goauthentik.io/start?rd=" + encodedUrl
+			startUrl := authentik.GetStartURL(origUrl)
+			if startUrl != expectedUrl {
+				t.Errorf("expected path to be %s, got %s", expectedUrl, startUrl)
 			}
 		})
 	}

@@ -15,7 +15,7 @@ func IsAuthentikPathAllowed(akPath string) bool {
 	return akPath != BasePath && !strings.HasPrefix(akPath, BasePath+"/auth")
 }
 
-func GetAuthentikStartPath(u *url.URL) string {
+func GetStartURL(u *url.URL) string {
 	loc := url.URL{
 		Scheme: u.Scheme,
 		Host:   u.Host,
