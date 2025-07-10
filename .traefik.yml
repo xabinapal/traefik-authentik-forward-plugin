@@ -11,15 +11,17 @@ testData:
   address: https://authentik.example.com
   unauthorizedStatusCode: 401
   redirectStatusCode: 302
-  unauthorizedPaths: ["^/.*$"]
+  skippedPaths: []
+  unauthorizedPaths:
+    - ^/.*$
   redirectPaths: []
 
   # http settings
+  timeout: 30s
   tls:
-    ca: "/path/to/ca.pem"
-    cert: "/path/to/cert.pem"
-    key: "/path/to/key.pem"
+    ca: ""
+    cert: ""
+    key: ""
     minVersion: 12
     maxVersion: 13
     insecureSkipVerify: false
-  timeout: "30s"

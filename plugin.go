@@ -37,9 +37,9 @@ func CreateConfig() *config.Config {
 }
 
 type Plugin struct {
+	name   string
 	next   http.Handler
 	config *config.PluginConfig
-	name   string
 	client *authentik.Client
 }
 
@@ -57,9 +57,9 @@ func New(ctx context.Context, next http.Handler, config *config.Config, name str
 	client := authentik.NewClient(httpClient, pc.Authentik)
 
 	return &Plugin{
+		name:   name,
 		next:   next,
 		config: pc,
-		name:   name,
 		client: client,
 	}, nil
 }
