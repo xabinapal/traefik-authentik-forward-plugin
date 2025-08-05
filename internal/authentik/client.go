@@ -25,6 +25,15 @@ func NewClient(context context.Context, client *http.Client, config *Config) *Cl
 }
 
 func (c *Client) Check(meta *RequestMeta) (*ResponseMeta, error) {
+	// check if s is already cached
+	if s := c.session.Get(meta.Cookies); s != nil {
+		return &ResponseMeta{
+			URL:     meta.URL,
+			Cached:  true,
+			Session: s,
+		}, nil
+	}
+
 	// send request to authentik to check if request is authenticated
 	res, err := c.request(meta, NginxPath, "")
 	if err != nil {
@@ -32,31 +41,38 @@ func (c *Client) Check(meta *RequestMeta) (*ResponseMeta, error) {
 	}
 	defer func() { _ = res.Body.Close() }()
 
+	var s *session.Session
 	switch res.StatusCode {
 	case http.StatusUnauthorized:
-		return &ResponseMeta{
-			URL: meta.URL,
-			Session: &session.Session{
-				IsAuthenticated: false,
-				Headers:         nil,
-				Cookies:         GetCookies(res),
-			},
-		}, nil
+		s = &session.Session{
+			IsAuthenticated: false,
+			Headers:         nil,
+			Cookies:         GetCookies(res),
+		}
 	case http.StatusOK:
-		return &ResponseMeta{
-			URL: meta.URL,
-			Session: &session.Session{
-				IsAuthenticated: true,
-				Headers:         GetHeaders(res),
-				Cookies:         GetCookies(res),
-			},
-		}, nil
+		s = &session.Session{
+			IsAuthenticated: true,
+			Headers:         GetHeaders(res),
+			Cookies:         GetCookies(res),
+		}
 	default:
 		return nil, fmt.Errorf("unexpected response: %d", res.StatusCode)
 	}
+
+	// cache session
+	c.session.Set(meta.Cookies, s)
+
+	return &ResponseMeta{
+		URL:     meta.URL,
+		Cached:  false,
+		Session: s,
+	}, nil
 }
 
 func (c *Client) Request(meta *RequestMeta, path string, query string) (*http.Response, error) {
+	// delete session if already cached
+	c.session.Delete(meta.Cookies)
+
 	return c.request(meta, path, query)
 }
 

@@ -14,5 +14,6 @@ type RequestMeta struct {
 
 type ResponseMeta struct {
 	URL     *url.URL
+	Cached  bool
 	Session *session.Session
 }

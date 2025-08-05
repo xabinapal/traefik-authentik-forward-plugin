@@ -1,5 +1,7 @@
 package session
 
+import "net/http"
+
 type StandardClient struct {
 }
 
@@ -7,12 +9,12 @@ func NewStandardClient() *StandardClient {
 	return &StandardClient{}
 }
 
-func (c *StandardClient) Get(session string) *Session {
+func (c *StandardClient) Get(cookies []*http.Cookie) *Session {
 	return nil
 }
 
-func (c *StandardClient) Set(session string, meta *Session) {
+func (c *StandardClient) Set(cookies []*http.Cookie, meta *Session) {
 }
 
-func (c *StandardClient) Delete(session string) {
+func (c *StandardClient) Delete(cookies []*http.Cookie) {
 }

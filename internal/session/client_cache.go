@@ -2,12 +2,13 @@ package session
 
 import (
 	"context"
+	"net/http"
 	"sync"
 	"time"
 )
 
 type CacheClient struct {
-	context  context.Context
+	context  context.Context //nolint:containedctx
 	duration time.Duration
 	store    sync.Map
 }
@@ -24,16 +25,20 @@ func NewCacheClient(context context.Context, duration time.Duration) *CacheClien
 	}
 }
 
-func (c *CacheClient) Get(session string) *Session {
-	if session, ok := c.store.Load(session); ok {
-		return session.(*Session)
+func (c *CacheClient) Get(cookies []*http.Cookie) *Session {
+	sessionId := GetIdentifier(cookies)
+	if v, ok := c.store.Load(sessionId); ok {
+		if s, ok := v.(*Session); ok {
+			return s
+		}
 	}
 
 	return nil
 }
 
-func (c *CacheClient) Set(session string, meta *Session) {
-	c.store.Store(session, meta)
+func (c *CacheClient) Set(cookies []*http.Cookie, meta *Session) {
+	sessionId := GetIdentifier(cookies)
+	c.store.Store(sessionId, meta)
 	if c.context.Err() != nil {
 		return
 	}
@@ -45,13 +50,14 @@ func (c *CacheClient) Set(session string, meta *Session) {
 		select {
 		case <-timer.C:
 			if c.context.Err() == nil {
-				c.store.Delete(session)
+				c.store.Delete(sessionId)
 			}
 		case <-c.context.Done():
 		}
 	}()
 }
 
-func (c *CacheClient) Delete(session string) {
-	c.store.Delete(session)
+func (c *CacheClient) Delete(cookies []*http.Cookie) {
+	sessionId := GetIdentifier(cookies)
+	c.store.Delete(sessionId)
 }

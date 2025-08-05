@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/authentik"
@@ -178,6 +179,9 @@ func (p *Plugin) serveUpstream(meta *authentik.ResponseMeta, req *http.Request, 
 				req.Header.Add(k, v)
 			}
 		}
+
+		// add cached header to upstream request
+		req.Header.Add(authentik.CachedHeaderKey, strconv.FormatBool(meta.Cached))
 
 		cookies = meta.Session.Cookies
 	} else {

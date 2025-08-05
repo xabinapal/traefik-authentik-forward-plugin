@@ -10,6 +10,8 @@ import (
 const (
 	HeaderPrefix = "X-Authentik-"
 	CookiePrefix = "authentik_proxy_"
+
+	CachedHeaderKey = "X-Authentik-Traefik-Cached"
 )
 
 func GetHeaders(res *http.Response) http.Header {
