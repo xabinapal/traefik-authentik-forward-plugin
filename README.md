@@ -34,6 +34,7 @@ This plugin provides forward authentication specifically designed for [Authentik
 - **Blocks internal paths**: Blocks user access to Authentik's internal auth routes.
 - **Improves security**: Prevents external tampering by making sure only Authentik can set authentication data.
 - **Flexible behavior**: Supports per-path control over responses (block, redirect to login, or allow access).
+- **Authentication cache**: Can cache authentication responses from Authentik to reduce overloading the server with multiple requests.
 
 ### How is authentication handled?
 
@@ -59,8 +60,21 @@ Authentik provides multiple outpost endpoints. This plugin uses the `/outpost.go
 
 It also avoids problems caused by proxies, load balancers, or CDNs that often mess with `X-Forwarded-*` HTTP headers required by the Traefik endpoint. Instead, the nginx endpoint uses an additional `X-Original-Uri` header, which stays intact across hops. This makes your auth setup more reliable and predictable.
 
-> [!IMPORTANT]
+> ⚠️ **Important**
+>
 > Authentik still relies on the `X-Forwarded-Host` header, so make sure it isn't modified by proxies in the request chain. That's still much simpler than managing all the headers required by other approaches.
+
+### When should I enable caching?
+
+Caching feature is designed to prevent overloading the Authentik server when handling multiple simultaneous requests for the same session. As an example, consider a website with a protected API: when a browser loads the site, it makes numerous API calls almost simultaneously. Since these requests happen within seconds of each other, it's inefficient to check authentication status with Authentik for every single request.
+
+When enabling caching, it's crucial to set a low `cacheDuration` value, typically 30 seconds or 1 minute at most. This short duration reduces the risk of stale authentication data while still providing the performance benefits. The cache automatically handles security concerns by invalidating itself whenever any request is made to `/outpost.goauthentik.io/*` paths. This means when a user logs out via `/outpost.goauthentik.io/sign_out`, the cache is immediately cleared, preventing access to protected resources with outdated authentication data.
+
+The middleware will add an `X-Authentik-Traefik-Cached` header to upstream requests, containing a boolean value that indicates whether the authentication status and user data were retrieved from a fresh Authentik query or from the cache.
+
+> ⚠️ **Use with caution**
+>
+> While caching provides performance benefits, it also introduces security considerations that must be carefully evaluated. Use this feature only when you understand the trade-off between performance and security.
 
 ## Installation
 
@@ -91,7 +105,7 @@ experimental:
   Base URL of your Authentik server (e.g., `https://auth.example.com`).
 
 - `cacheDuration`: `string`, optional, default `0s` \
-  Caches Authentik responses for the same session to avoid repeated queries when a user makes multiple requests in a short time. It is recommended to set this to a small value like `30s` or `1m` to reduce load on Authentik but to avoid having stall entries.
+  Caches Authentik responses for the same session to reduce load on Authentik when a user makes multiple requests in a short time.
 
 - `unauthorizedStatusCode`: `uint`, optional, default `401` \
   HTTP status code to return when denying access for request paths matched by `unauthorizedPaths`.
@@ -108,8 +122,8 @@ experimental:
 - `redirectPaths`: `[]string`, optional, default `[]` \
   List of regex patterns. If the request path matches one of them, the plugin redirects to Authentik using `redirectStatusCode`. Longest match wins.
 
-> [!NOTE]
-> **Path matching precedence:**
+> 📝 **Path matching precedence**
+>
 > 1. The path is checked against `skippedPaths`. If any regex matches, the request is allowed and Authentik is not checked for authorization. `X-Authentik-*` headers won't be filled in the upstream request.
 > 2. Both `unauthorizedPaths` and `redirectPaths` are checked. If no regex matches in either list, the request is allowed, but Authentik is checked, and user info will be sent upstream if authenticated.
 > 3. If both lists contain matching regexes, the **longest matching pattern** (by string length) wins. If two matching regexes have the same length, the one from `unauthorizedPaths` takes precedence.
@@ -190,7 +204,6 @@ spec:
   plugin:
     authentik-forward:
       address: https://auth.example.com
-
       cacheDuration: "1m"
 
       unauthorizedStatusCode: 401
