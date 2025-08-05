@@ -3,10 +3,12 @@ package authentik
 import (
 	"net/http"
 	"regexp"
+	"time"
 )
 
 type Config struct {
-	Address string
+	Address       string
+	CacheDuration time.Duration
 
 	UnauthorizedStatusCode int
 	RedirectStatusCode     int

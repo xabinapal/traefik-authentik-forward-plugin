@@ -16,12 +16,15 @@ import (
 func CreateConfig() *config.Config {
 	return &config.Config{
 		// authentik settings
-		Address:                "",
+		Address:       "",
+		CacheDuration: config.DefaultCacheDuration,
+
 		UnauthorizedStatusCode: config.DefaultUnauthorizedStatusCode,
 		RedirectStatusCode:     config.DefaultRedirectStatusCode,
-		SkippedPaths:           config.DefaultSkippedPaths,
-		UnauthorizedPaths:      config.DefaultUnauthorizedPaths,
-		RedirectPaths:          config.DefaultRedirectPaths,
+
+		SkippedPaths:      config.DefaultSkippedPaths,
+		UnauthorizedPaths: config.DefaultUnauthorizedPaths,
+		RedirectPaths:     config.DefaultRedirectPaths,
 
 		// http settings
 		Timeout: config.DefaultTimeout,
@@ -54,7 +57,7 @@ func New(ctx context.Context, next http.Handler, config *config.Config, name str
 		return nil, fmt.Errorf("failed to create http client: %w", err)
 	}
 
-	client := authentik.NewClient(httpClient, pc.Authentik)
+	client := authentik.NewClient(ctx, httpClient, pc.Authentik)
 
 	return &Plugin{
 		name:   name,
@@ -65,10 +68,25 @@ func New(ctx context.Context, next http.Handler, config *config.Config, name str
 }
 
 func (p *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	url, err := httputil.GetRequestURI(req)
+	meta, err := p.handleRequest(req)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	if strings.HasPrefix(meta.URL.Path, authentik.BasePath) {
+		// send request to authentik
+		p.handleAuthentik(meta, req, rw)
+	} else {
+		// send request to upstream
+		p.handleUpstream(meta, req, rw)
+	}
+}
+
+func (p *Plugin) handleRequest(req *http.Request) (*authentik.RequestMeta, error) {
+	url, err := httputil.GetRequestURI(req)
+	if err != nil {
+		return nil, err
 	}
 
 	meta := &authentik.RequestMeta{
@@ -79,13 +97,7 @@ func (p *Plugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	// remove authentik headers and cookies in request to upstream
 	authentik.RequestMangle(req)
 
-	if strings.HasPrefix(url.Path, authentik.BasePath) {
-		// send request to authentik
-		p.handleAuthentik(meta, req, rw)
-	} else {
-		// send request to upstream
-		p.handleUpstream(meta, req, rw)
-	}
+	return meta, nil
 }
 
 func (p *Plugin) handleAuthentik(meta *authentik.RequestMeta, req *http.Request, rw http.ResponseWriter) {
@@ -147,7 +159,7 @@ func (p *Plugin) handleUpstream(meta *authentik.RequestMeta, req *http.Request, 
 	// get status code to return if request is not authenticated
 	sc := p.config.Authentik.GetUnauthorizedStatusCode(meta.URL.Path)
 
-	if !resMeta.IsAuthenticated && sc != http.StatusOK {
+	if !resMeta.Session.IsAuthenticated && sc != http.StatusOK {
 		// return unauthorized if request is not authenticated and path is not allowed
 		p.serveUnauthorized(resMeta, rw, sc)
 	} else {
@@ -161,13 +173,13 @@ func (p *Plugin) serveUpstream(meta *authentik.ResponseMeta, req *http.Request, 
 
 	if meta != nil {
 		// add authentication headers to upstream request
-		for k, vs := range meta.Headers {
+		for k, vs := range meta.Session.Headers {
 			for _, v := range vs {
 				req.Header.Add(k, v)
 			}
 		}
 
-		cookies = meta.Cookies
+		cookies = meta.Session.Cookies
 	} else {
 		cookies = []*http.Cookie{}
 	}
@@ -189,7 +201,7 @@ func (p *Plugin) serveUnauthorized(meta *authentik.ResponseMeta, rw http.Respons
 	}
 
 	// add authentik session cookies to downstream response
-	for _, c := range meta.Cookies {
+	for _, c := range meta.Session.Cookies {
 		rw.Header().Add("Set-Cookie", c.String())
 	}
 

@@ -18,6 +18,8 @@ const (
 )
 
 const (
+	DefaultCacheDuration = "0s"
+
 	DefaultUnauthorizedStatusCode = http.StatusUnauthorized
 	DefaultRedirectStatusCode     = http.StatusFound
 
@@ -58,10 +60,22 @@ func (c *Config) Parse() (*PluginConfig, error) {
 func parseAuthentikConfig(c *Config) (*authentik.Config, error) {
 	cfg := &authentik.Config{}
 
+	// parse authentik address
 	if c.Address == "" {
 		return nil, fmt.Errorf("%w: address is required", ErrConfigParse)
 	}
 	cfg.Address = c.Address
+
+	// parse cache duration
+	if c.CacheDuration == "" {
+		c.CacheDuration = DefaultCacheDuration
+	}
+
+	if cacheDuration, err := time.ParseDuration(c.CacheDuration); err != nil {
+		return nil, fmt.Errorf("cacheDuration is not valid: %w", err)
+	} else {
+		cfg.CacheDuration = cacheDuration
+	}
 
 	// set default unauthorized status code
 	if c.UnauthorizedStatusCode == 0 {

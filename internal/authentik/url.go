@@ -6,20 +6,22 @@ import (
 )
 
 const (
-	BasePath = "/outpost.goauthentik.io"
-	AuthPath = BasePath + "/auth/nginx"
+	BasePath  = "/outpost.goauthentik.io"
+	StartPath = BasePath + "/start"
+	AuthPath  = BasePath + "/auth"
+	NginxPath = AuthPath + "/nginx"
 )
 
 func IsAuthentikPathAllowed(akPath string) bool {
 	// allow all paths except the base path and auth paths
-	return akPath != BasePath && !strings.HasPrefix(akPath, BasePath+"/auth")
+	return akPath != BasePath && !strings.HasPrefix(akPath, AuthPath)
 }
 
 func GetStartURL(u *url.URL) string {
 	loc := url.URL{
 		Scheme: u.Scheme,
 		Host:   u.Host,
-		Path:   BasePath + "/start",
+		Path:   StartPath,
 		RawQuery: url.Values{
 			"rd": {u.String()},
 		}.Encode(),

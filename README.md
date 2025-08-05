@@ -90,6 +90,9 @@ experimental:
 - `address`: `string`, **required** \
   Base URL of your Authentik server (e.g., `https://auth.example.com`).
 
+- `cacheDuration`: `string`, optional, default `0s` \
+  Caches Authentik responses for the same session to avoid repeated queries when a user makes multiple requests in a short time. It is recommended to set this to a small value like `30s` or `1m` to reduce load on Authentik but to avoid having stall entries.
+
 - `unauthorizedStatusCode`: `uint`, optional, default `401` \
   HTTP status code to return when denying access for request paths matched by `unauthorizedPaths`.
 
@@ -97,7 +100,7 @@ experimental:
   HTTP status code to return when redirecting to login for request paths matched by `redirectPaths`.
 
 - `skippedPaths`: `[]string`, optional, default `["^/.*$"]` \
-  List of regex patterns. If the request path matches one of them, the plugin won't ask Authentik for authorization. This list has priority over other priorities.
+  List of regex patterns. If the request path matches one of them, the plugin won't ask Authentik for authorization. This list has priority over other both `unauthorizedPaths` and `redirectPaths`.
 
 - `unauthorizedPaths`: `[]string`, optional, default `["^/.*$"]` \
   List of regex patterns. If the request path matches one of them, the plugin denies access using `unauthorizedStatusCode`. This list has priority over `redirectPaths`. Longest match wins.
@@ -145,6 +148,18 @@ http:
       plugin:
         authentik-forward:
           address: https://auth.example.com
+          cacheDuration: "1m"
+
+          unauthorizedStatusCode: 401
+          redirectStatusCode: 302
+
+          unauthorizedPaths:
+            - "^/api/.*$"
+            - "^/admin/.*$"
+          redirectPaths:
+            - "^/app/.*$"
+            - "^/$"
+
           timeout: "30s"
           tls:
             ca: "/etc/ssl/certs/ca.pem"
@@ -153,14 +168,6 @@ http:
             minVersion: 12
             maxVersion: 13
             insecureSkipVerify: false
-          unauthorizedStatusCode: 401
-          redirectStatusCode: 302
-          unauthorizedPaths:
-            - "^/api/.*$"
-            - "^/admin/.*$"
-          redirectPaths:
-            - "^/app/.*$"
-            - "^/$"
 
   routers:
     api:
@@ -183,6 +190,19 @@ spec:
   plugin:
     authentik-forward:
       address: https://auth.example.com
+
+      cacheDuration: "1m"
+
+      unauthorizedStatusCode: 401
+      redirectStatusCode: 302
+
+      unauthorizedPaths:
+        - "^/api/.*$"
+        - "^/admin/.*$"
+      redirectPaths:
+        - "^/app/.*$"
+        - "^/$"
+
       timeout: "30s"
       tls:
         ca: "/etc/ssl/certs/ca.pem"
@@ -191,14 +211,6 @@ spec:
         minVersion: 12
         maxVersion: 13
         insecureSkipVerify: false
-      unauthorizedStatusCode: 401
-      redirectStatusCode: 302
-      unauthorizedPaths:
-        - "^/api/.*$"
-        - "^/admin/.*$"
-      redirectPaths:
-        - "^/app/.*$"
-        - "^/$"
 ```
 
 **IngressRoute**

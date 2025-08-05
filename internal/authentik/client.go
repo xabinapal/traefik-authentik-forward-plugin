@@ -1,27 +1,32 @@
 package authentik
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/session"
 )
 
 type Client struct {
-	client *http.Client
-	config *Config
+	config  *Config
+	client  *http.Client
+	session session.Client
 }
 
-func NewClient(client *http.Client, config *Config) *Client {
+func NewClient(context context.Context, client *http.Client, config *Config) *Client {
 	return &Client{
-		client: client,
-		config: config,
+		config:  config,
+		client:  client,
+		session: session.NewClient(context, config.CacheDuration),
 	}
 }
 
 func (c *Client) Check(meta *RequestMeta) (*ResponseMeta, error) {
 	// send request to authentik to check if request is authenticated
-	res, err := c.Request(meta, AuthPath, "")
+	res, err := c.request(meta, NginxPath, "")
 	if err != nil {
 		return nil, err
 	}
@@ -30,17 +35,21 @@ func (c *Client) Check(meta *RequestMeta) (*ResponseMeta, error) {
 	switch res.StatusCode {
 	case http.StatusUnauthorized:
 		return &ResponseMeta{
-			URL:             meta.URL,
-			IsAuthenticated: false,
-			Headers:         nil,
-			Cookies:         GetCookies(res),
+			URL: meta.URL,
+			Session: &session.Session{
+				IsAuthenticated: false,
+				Headers:         nil,
+				Cookies:         GetCookies(res),
+			},
 		}, nil
 	case http.StatusOK:
 		return &ResponseMeta{
-			URL:             meta.URL,
-			IsAuthenticated: true,
-			Headers:         GetHeaders(res),
-			Cookies:         GetCookies(res),
+			URL: meta.URL,
+			Session: &session.Session{
+				IsAuthenticated: true,
+				Headers:         GetHeaders(res),
+				Cookies:         GetCookies(res),
+			},
 		}, nil
 	default:
 		return nil, fmt.Errorf("unexpected response: %d", res.StatusCode)
@@ -48,6 +57,10 @@ func (c *Client) Check(meta *RequestMeta) (*ResponseMeta, error) {
 }
 
 func (c *Client) Request(meta *RequestMeta, path string, query string) (*http.Response, error) {
+	return c.request(meta, path, query)
+}
+
+func (c *Client) request(meta *RequestMeta, path string, query string) (*http.Response, error) {
 	// send request to authentik
 	akReq, err := http.NewRequest(http.MethodGet, c.config.Address+path, nil)
 	if err != nil {

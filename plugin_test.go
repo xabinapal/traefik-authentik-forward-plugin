@@ -25,12 +25,14 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 		})
 
 		config := &config.Config{
-			Address:                akServer.URL,
+			Address: akServer.URL,
+
 			UnauthorizedStatusCode: http.StatusForbidden,
 			RedirectStatusCode:     http.StatusMovedPermanently,
-			SkippedPaths:           []string{"^/skip"},
-			UnauthorizedPaths:      []string{"^/admin"},
-			RedirectPaths:          []string{"^/login"},
+
+			SkippedPaths:      []string{"^/skip"},
+			UnauthorizedPaths: []string{"^/admin"},
+			RedirectPaths:     []string{"^/login"},
 		}
 		handler, _ := plugin.New(context.Background(), next, config, "test")
 
@@ -81,12 +83,14 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 		})
 
 		config := &config.Config{
-			Address:                akServer.URL,
+			Address: akServer.URL,
+
 			UnauthorizedStatusCode: http.StatusForbidden,
 			RedirectStatusCode:     http.StatusMovedPermanently,
-			SkippedPaths:           []string{"^/skip"},
-			UnauthorizedPaths:      []string{"^/admin"},
-			RedirectPaths:          []string{"^/login"},
+
+			SkippedPaths:      []string{"^/skip"},
+			UnauthorizedPaths: []string{"^/admin"},
+			RedirectPaths:     []string{"^/login"},
 		}
 		handler, _ := plugin.New(context.Background(), next, config, "test")
 
@@ -141,11 +145,13 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 		})
 
 		config := &config.Config{
-			Address:                akServer.URL,
+			Address: akServer.URL,
+
 			UnauthorizedStatusCode: http.StatusForbidden,
 			RedirectStatusCode:     http.StatusMovedPermanently,
-			UnauthorizedPaths:      []string{"^/.*"},
-			RedirectPaths:          []string{},
+
+			UnauthorizedPaths: []string{"^/.*"},
+			RedirectPaths:     []string{},
 		}
 		handler, _ := plugin.New(context.Background(), next, config, "test")
 
@@ -200,11 +206,13 @@ func TestServeHTTP_UpstreamPaths(t *testing.T) {
 		})
 
 		config := &config.Config{
-			Address:                akServer.URL,
+			Address: akServer.URL,
+
 			UnauthorizedStatusCode: http.StatusForbidden,
 			RedirectStatusCode:     http.StatusMovedPermanently,
-			UnauthorizedPaths:      []string{},
-			RedirectPaths:          []string{"^/.*"},
+
+			UnauthorizedPaths: []string{},
+			RedirectPaths:     []string{"^/.*"},
 		}
 		handler, _ := plugin.New(context.Background(), next, config, "test")
 

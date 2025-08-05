@@ -1,6 +1,7 @@
 package authentik_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -33,7 +34,7 @@ func TestCheck(t *testing.T) {
 		defer server.Close()
 
 		config := &authentik.Config{Address: server.URL}
-		client := authentik.NewClient(server.Client(), config)
+		client := authentik.NewClient(context.Background(), server.Client(), config)
 
 		reqMeta := &authentik.RequestMeta{
 			URL: &url.URL{
@@ -55,7 +56,7 @@ func TestCheck(t *testing.T) {
 		}
 
 		// check that the request was unauthenticated
-		if resMeta.IsAuthenticated {
+		if resMeta.Session.IsAuthenticated {
 			t.Error("expected request to be unauthenticated")
 		}
 
@@ -65,18 +66,18 @@ func TestCheck(t *testing.T) {
 		}
 
 		// check that the received headers are set correctly
-		if len(resMeta.Headers) != 0 {
-			t.Errorf("expected 0 received headers, got %d", len(resMeta.Headers))
+		if len(resMeta.Session.Headers) != 0 {
+			t.Errorf("expected 0 received headers, got %d", len(resMeta.Session.Headers))
 		}
 
 		// check that the received cookies are set correctly
-		if len(resMeta.Cookies) != 1 {
-			t.Fatalf("expected 1 received cookie, got %d", len(resMeta.Cookies))
+		if len(resMeta.Session.Cookies) != 1 {
+			t.Fatalf("expected 1 received cookie, got %d", len(resMeta.Session.Cookies))
 		}
 
 		expectedCookieName := "authentik_proxy_session"
 		expectedCookieValue := "test-session"
-		for _, c := range resMeta.Cookies {
+		for _, c := range resMeta.Session.Cookies {
 			if c.Name != expectedCookieName || c.Value != expectedCookieValue {
 				t.Errorf("expected received cookie %s=%s, got %s=%s", expectedCookieName, expectedCookieValue, c.Name, c.Value)
 			}
@@ -109,7 +110,7 @@ func TestCheck(t *testing.T) {
 		defer server.Close()
 
 		config := &authentik.Config{Address: server.URL}
-		client := authentik.NewClient(server.Client(), config)
+		client := authentik.NewClient(context.Background(), server.Client(), config)
 
 		reqMeta := &authentik.RequestMeta{
 			URL: &url.URL{
@@ -131,7 +132,7 @@ func TestCheck(t *testing.T) {
 		}
 
 		// check that the request was authenticated
-		if !resMeta.IsAuthenticated {
+		if !resMeta.Session.IsAuthenticated {
 			t.Error("expected request to be authenticated")
 		}
 
@@ -141,26 +142,26 @@ func TestCheck(t *testing.T) {
 		}
 
 		// check that the received headers are set correctly
-		if len(resMeta.Headers) != 1 {
-			t.Errorf("expected 1 received header, got %d", len(resMeta.Headers))
+		if len(resMeta.Session.Headers) != 1 {
+			t.Errorf("expected 1 received header, got %d", len(resMeta.Session.Headers))
 		}
 
 		expectedHeaderName := "X-Authentik-User"
 		expectedHeaderValue := "testuser"
-		for k, v := range resMeta.Headers {
+		for k, v := range resMeta.Session.Headers {
 			if k != expectedHeaderName || v[0] != expectedHeaderValue {
 				t.Errorf("expected received header %s=%s, got %s=%s", expectedHeaderName, expectedHeaderValue, k, v[0])
 			}
 		}
 
 		// check that the received cookies are set correctly
-		if len(resMeta.Cookies) != 1 {
-			t.Fatalf("expected 1 received cookie, got %d", len(resMeta.Cookies))
+		if len(resMeta.Session.Cookies) != 1 {
+			t.Fatalf("expected 1 received cookie, got %d", len(resMeta.Session.Cookies))
 		}
 
 		expectedCookieName := "authentik_proxy_session"
 		expectedCookieValue := "test-session"
-		for _, c := range resMeta.Cookies {
+		for _, c := range resMeta.Session.Cookies {
 			if c.Name != expectedCookieName || c.Value != expectedCookieValue {
 				t.Errorf("expected received cookie %s=%s, got %s=%s", expectedCookieName, expectedCookieValue, c.Name, c.Value)
 			}
@@ -177,7 +178,7 @@ func TestCheck(t *testing.T) {
 		defer server.Close()
 
 		config := &authentik.Config{Address: server.URL}
-		client := authentik.NewClient(server.Client(), config)
+		client := authentik.NewClient(context.Background(), server.Client(), config)
 
 		meta := &authentik.RequestMeta{
 			URL: &url.URL{
@@ -256,7 +257,7 @@ func TestRequest(t *testing.T) {
 		defer akServer.Close()
 
 		config := &authentik.Config{Address: akServer.URL}
-		client := authentik.NewClient(akServer.Client(), config)
+		client := authentik.NewClient(context.Background(), akServer.Client(), config)
 
 		meta := &authentik.RequestMeta{
 			URL: &url.URL{
@@ -300,7 +301,7 @@ func TestRequest(t *testing.T) {
 		defer akServer.Close()
 
 		config := &authentik.Config{Address: akServer.URL}
-		client := authentik.NewClient(akServer.Client(), config)
+		client := authentik.NewClient(context.Background(), akServer.Client(), config)
 
 		meta := &authentik.RequestMeta{
 			URL: &url.URL{
@@ -338,7 +339,7 @@ func TestRequest(t *testing.T) {
 		defer akServer.Close()
 
 		config := &authentik.Config{Address: akServer.URL}
-		client := authentik.NewClient(akServer.Client(), config)
+		client := authentik.NewClient(context.Background(), akServer.Client(), config)
 
 		meta := &authentik.RequestMeta{
 			URL: &url.URL{

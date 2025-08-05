@@ -3,6 +3,8 @@ package authentik
 import (
 	"net/http"
 	"net/url"
+
+	"github.com/xabinapal/traefik-authentik-forward-plugin/internal/session"
 )
 
 type RequestMeta struct {
@@ -11,8 +13,6 @@ type RequestMeta struct {
 }
 
 type ResponseMeta struct {
-	URL             *url.URL
-	IsAuthenticated bool
-	Headers         http.Header
-	Cookies         []*http.Cookie
+	URL     *url.URL
+	Session *session.Session
 }

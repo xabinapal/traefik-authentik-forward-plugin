@@ -63,7 +63,7 @@ func TestGetHeaders(t *testing.T) {
 
 func TestGetCookies(t *testing.T) {
 	t.Run("with request", func(t *testing.T) {
-		res := &http.Request{
+		req := &http.Request{
 			Header: http.Header{
 				"Cookie": []string{
 					"session_id=abc123",
@@ -75,7 +75,7 @@ func TestGetCookies(t *testing.T) {
 			},
 		}
 
-		result := authentik.GetCookies(res)
+		result := authentik.GetCookies(req)
 
 		// check that the expected cookies are present
 		expectedCookies := map[string]string{
@@ -270,7 +270,6 @@ func TestGetResponseMangler(t *testing.T) {
 
 		rw := httptest.NewRecorder()
 		rw.Header().Add("Set-Cookie", "authentik_proxy_session3=session3")
-		rw.Header().Add("Set-Cookie", "authentik_proxy_session4=session4")
 		rw.Header().Add("Set-Cookie", "other=value5")
 
 		mangler(rw)

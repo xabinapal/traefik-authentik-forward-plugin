@@ -24,7 +24,7 @@ func GetHeaders(res *http.Response) http.Header {
 }
 
 func GetCookies(cookier httputil.Cookier) []*http.Cookie {
-	cookies := []*http.Cookie{}
+	cookies := make([]*http.Cookie, 0, 1)
 
 	for _, c := range cookier.Cookies() {
 		if strings.HasPrefix(c.Name, CookiePrefix) && c.Name != CookiePrefix {

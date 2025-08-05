@@ -9,6 +9,9 @@ type Config struct {
 	// The address of the Authentik server to forward requests to.
 	Address string `json:"address"`
 
+	// The duration to cache the Authentik session responses.
+	CacheDuration string `json:"cacheDuration,omitempty"`
+
 	// The status code to return when the request is unauthorized.
 	UnauthorizedStatusCode uint16 `json:"unauthorizedStatusCode,omitempty"`
 
