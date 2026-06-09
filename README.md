@@ -48,6 +48,14 @@ To prevent header spoofing, any `X-Authentik-*` headers sent by either the upstr
 
 User sessions are managed using a cookie named like `authentik_proxy_<ID>`. This cookie is set by Authentik during the login flow and is used to identify the session in later requests. The upstream service must not try to modify this cookie. Any changes made to it will be ignored and overwritten by the plugin.
 
+### What about API tokens?
+
+In addition to cookie-based sessions, the plugin also accepts Authentik API tokens passed as a bearer token in the `Authorization` header (`Authorization: Bearer <token>`). This is useful for programmatic clients that can't go through the interactive login flow.
+
+When a request carries a bearer token, the plugin validates it by calling Authentik's `/api/v3/core/users/me/` endpoint instead of the outpost. If the token is valid, the user details (`pk`, `username`, `email` and `groups`) are forwarded upstream using the same `X-Authentik-*` headers as the cookie flow (`X-Authentik-Uid`, `X-Authentik-Username`, `X-Authentik-Email` and `X-Authentik-Groups`, with groups joined by `|`). A request with an invalid or expired token is treated as unauthenticated. When no bearer token is present, the plugin uses the regular cookie-based outpost flow.
+
+Token validations are cached using the same mechanism and `cacheDuration` as cookie sessions, keyed by the token, so repeated requests with the same token don't overload Authentik.
+
 ### Why not just use `forwardAuth`?
 
 Traefik's built-in `forwardAuth` middleware is flexible, but that also means more setup and more room for mistakes. This plugin is made specifically for Authentik, so there is no need to write custom routes, tweak headers, or fight with cookie issues.

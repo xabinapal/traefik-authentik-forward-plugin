@@ -96,6 +96,7 @@ func (p *Plugin) handleRequest(req *http.Request) (*authentik.RequestMeta, error
 	meta := &authentik.RequestMeta{
 		URL:     url,
 		Cookies: authentik.GetCookies(req),
+		Token:   authentik.GetBearerToken(req),
 	}
 
 	// remove authentik headers and cookies in request to upstream

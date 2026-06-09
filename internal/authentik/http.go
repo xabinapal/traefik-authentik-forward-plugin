@@ -25,6 +25,17 @@ func GetHeaders(res *http.Response) http.Header {
 	return headers
 }
 
+func GetBearerToken(req *http.Request) string {
+	const prefix = "Bearer "
+
+	auth := req.Header.Get("Authorization")
+	if len(auth) <= len(prefix) || !strings.EqualFold(auth[:len(prefix)], prefix) {
+		return ""
+	}
+
+	return strings.TrimSpace(auth[len(prefix):])
+}
+
 func GetCookies(cookier httputil.Cookier) []*http.Cookie {
 	cookies := make([]*http.Cookie, 0, 1)
 

@@ -10,6 +10,7 @@ import (
 type RequestMeta struct {
 	URL     *url.URL
 	Cookies []*http.Cookie
+	Token   string
 }
 
 type ResponseMeta struct {

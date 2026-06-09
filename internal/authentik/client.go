@@ -30,6 +30,11 @@ func NewClient(context context.Context, client *http.Client, config *Config) (*C
 }
 
 func (c *Client) Check(meta *RequestMeta) (*ResponseMeta, error) {
+	// validate bearer token against the authentik api when present
+	if meta.Token != "" {
+		return c.checkToken(meta)
+	}
+
 	// check if s is already cached
 	if s := c.session.Get(meta.Cookies); s != nil {
 		return &ResponseMeta{
